@@ -28,7 +28,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "italicize-unplanted-preschool.ngrok-free.dev",
+]
 
 
 # Application definition
@@ -155,3 +159,30 @@ CELERY_RESULT_BACKEND = os.getenv(
 )
 
 CELERY_TIMEZONE = "Asia/Kolkata"
+
+from celery.schedules import crontab
+
+from celery.schedules import crontab
+
+
+CELERY_BEAT_SCHEDULE = {
+
+    "process-due-reminders-every-minute": {
+        "task": "notifications.tasks.process_due_reminders",
+        "schedule": crontab(minute="*"),
+    },
+
+    "check-missed-reminders-every-minute": {
+        "task": "notifications.tasks.check_missed_reminders",
+        "schedule": crontab(minute="*"),
+    },
+
+}
+
+WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
+WHATSAPP_API_VERSION = os.getenv(
+    "WHATSAPP_API_VERSION",
+    "vXX.X",
+)
