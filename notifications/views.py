@@ -1,43 +1,99 @@
-from django.http import JsonResponse
+import json
+
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-import json
+from reminders.models import Reminder
+from .whatsapp import send_whatsapp_message
+from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from reminders.models import Reminder
 
 
 @csrf_exempt
-def whatsapp_webhook(request):
-    # Meta webhook verification
-    if request.method == "GET":
-        verify_token = request.GET.get("hub.verify_token")
-        challenge = request.GET.get("hub.challenge")
+def openwa_webhook(request):
 
-        if verify_token == settings.WHATSAPP_VERIFY_TOKEN:
-            return JsonResponse(
-                int(challenge),
-                safe=False
-            )
-
+    if request.method != "POST":
         return JsonResponse(
-            {"error": "Invalid verify token"},
-            status=403
+            {"error": "POST request required"},
+            status=405
         )
 
-    # Incoming WhatsApp messages
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse(
-                {"error": "Invalid JSON"},
-                status=400
-            )
+    try:
+        payload = json.loads(request.body)
 
-        print("📩 WhatsApp webhook received:")
-        print(json.dumps(data, indent=2))
+        print("\n📩 OpenWA webhook received:")
+        print(json.dumps(payload, indent=2))
 
-        return JsonResponse({"status": "received"})
+        event = payload.get("event")
+        data = payload.get("data", {})
 
-    return JsonResponse(
-        {"error": "Method not allowed"},
-        status=405
-    )
+        if event != "message.received":
+            return JsonResponse({
+                "received": True,
+                "ignored": True
+            })
+
+        sender = data.get("from")
+        message = data.get("body", "").strip()
+
+        print(f"Sender: {sender}")
+        print(f"Message: {message}")
+
+        # Only process DONE
+        if message.upper() != "DONE":
+            return JsonResponse({
+                "received": True,
+                "message": "Message ignored"
+            })
+
+        # Find the latest reminder that is waiting for confirmation
+        reminder = (
+            Reminder.objects
+            .filter(status="sent")
+            .order_by("-scheduled_at")
+            .first()
+        )
+
+        if not reminder:
+            print("⚠️ No sent reminder found.")
+
+            return JsonResponse({
+                "received": True,
+                "confirmed": False,
+                "message": "No pending reminder found"
+            })
+
+        # Confirm the reminder
+        reminder.status = "confirmed"
+        reminder.confirmed_at = timezone.now()
+        reminder.save(
+            update_fields=[
+                "status",
+                "confirmed_at"
+            ]
+        )
+
+        print(
+            f"✅ Reminder #{reminder.id} confirmed!"
+        )
+
+        return JsonResponse({
+            "received": True,
+            "confirmed": True,
+            "reminder_id": reminder.id
+        })
+
+    except json.JSONDecodeError:
+
+        return JsonResponse({
+            "error": "Invalid JSON"
+        }, status=400)
+
+    except Exception as e:
+
+        print(f"❌ OpenWA webhook error: {e}")
+
+        return JsonResponse({
+            "error": str(e)
+        }, status=500)
