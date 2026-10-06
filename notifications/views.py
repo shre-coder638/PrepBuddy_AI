@@ -1,13 +1,13 @@
 import json
+import requests
 
 from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
-from reminders.models import Reminder
-from .whatsapp import send_whatsapp_message
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+
 from reminders.models import Reminder
+from .whatsapp import send_openwa_message
 
 
 @csrf_exempt
@@ -34,7 +34,7 @@ def openwa_webhook(request):
                 "ignored": True
             })
 
-        sender = data.get("from")
+        sender = data.get("from", "").strip()
         message = data.get("body", "").strip()
 
         print(f"Sender: {sender}")
@@ -47,16 +47,82 @@ def openwa_webhook(request):
                 "message": "Message ignored"
             })
 
-        # Find the latest reminder that is waiting for confirmation
+        # --------------------------------------------------
+        # Resolve WhatsApp LID to the real phone number
+        # --------------------------------------------------
+
+        phone_url = (
+            f"{settings.OPENWA_BASE_URL}"
+            f"/api/sessions/{settings.OPENWA_SESSION_ID}"
+            f"/contacts/{sender}/phone"
+        )
+
+        headers = {
+            "X-API-Key": settings.OPENWA_API_KEY,
+        }
+
+        phone_response = requests.get(
+            phone_url,
+            headers=headers,
+            timeout=15,
+        )
+
+        print(
+            "OpenWA phone lookup:",
+            phone_response.status_code,
+            phone_response.text
+        )
+
+        phone_response.raise_for_status()
+
+        phone_data = phone_response.json()
+
+        phone_number = str(
+            phone_data.get("phone", "")
+        ).strip()
+
+        # Remove + if OpenWA ever returns it
+        phone_number = phone_number.lstrip("+")
+
+        print(
+            f"Resolved patient phone: {phone_number}"
+        )
+
+        if not phone_number:
+            return JsonResponse({
+                "received": True,
+                "confirmed": False,
+                "message": "Could not resolve WhatsApp phone number"
+            })
+
+        # --------------------------------------------------
+        # Find the patient's latest sent reminder
+        # --------------------------------------------------
+
         reminder = (
             Reminder.objects
-            .filter(status="sent")
+            .filter(
+                status="sent",
+                procedure__patient__phone_number__in=[
+                    phone_number,
+                    f"+{phone_number}",
+                ],
+            )
+            .select_related(
+                "procedure",
+                "procedure__patient",
+                "prep_step",
+            )
             .order_by("-scheduled_at")
             .first()
         )
 
         if not reminder:
-            print("⚠️ No sent reminder found.")
+
+            print(
+                f"⚠️ No sent reminder found for "
+                f"phone {phone_number}"
+            )
 
             return JsonResponse({
                 "received": True,
@@ -64,14 +130,29 @@ def openwa_webhook(request):
                 "message": "No pending reminder found"
             })
 
-        # Confirm the reminder
+        # --------------------------------------------------
+        # Confirm reminder
+        # --------------------------------------------------
+
         reminder.status = "confirmed"
         reminder.confirmed_at = timezone.now()
+
         reminder.save(
             update_fields=[
                 "status",
-                "confirmed_at"
+                "confirmed_at",
             ]
+        )
+
+        confirmation_message = (
+            "✅ Your preparation step has been confirmed!\n\n"
+            "Thank you. PrepBuddy has recorded your confirmation."
+        )
+
+        # Send confirmation back to the actual WhatsApp chat
+        send_openwa_message(
+            sender,
+            confirmation_message
         )
 
         print(
@@ -81,7 +162,8 @@ def openwa_webhook(request):
         return JsonResponse({
             "received": True,
             "confirmed": True,
-            "reminder_id": reminder.id
+            "reminder_id": reminder.id,
+            "patient_phone": phone_number,
         })
 
     except json.JSONDecodeError:
@@ -92,8 +174,11 @@ def openwa_webhook(request):
 
     except Exception as e:
 
-        print(f"❌ OpenWA webhook error: {e}")
+        print(
+            f"❌ OpenWA webhook error: {e}"
+        )
 
         return JsonResponse({
             "error": str(e)
         }, status=500)
+
