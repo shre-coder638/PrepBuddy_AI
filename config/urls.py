@@ -17,12 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from .views import privacy_policy
+from .views import dashboard, privacy_policy
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
+    path("", dashboard, name="dashboard"),
     path("privacy-policy/", privacy_policy, name="privacy-policy"),
 
     path("api/reminders/", include("reminders.urls")),
