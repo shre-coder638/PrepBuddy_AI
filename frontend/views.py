@@ -139,54 +139,7 @@ def set_session_user(request, user):
 
 @login_required
 def dashboard(request):
-    patients=get_patient_data(request)
-    patient_list=list(patients.values())
-
-    for patient in patient_list:
-        patient["risk_steps"]=[
-            step for step in patient.get("steps", [])
-            if step.get("status") == "risk"
-        ]
-        patient["primary_risk_index"] = next(
-            (
-                index
-                for index, step in enumerate(patient.get("steps", []))
-                if step.get("status") == "risk"
-            ),
-            0,
-        )
-
-    procedures_count=len(patient_list)
-    ready_count=sum(1 for patient in patient_list if patient["status"]=="ready")
-    pending_count=sum(1 for patient in patient_list if patient["status"]=="pending")
-    risk_count=sum(1 for patient in patient_list if patient["status"]=="risk")
-
-    search=request.GET.get("search","").strip().lower()
-
-    def matches_search(patient):
-        if not search:
-            return True
-        searchable_text=" ".join([
-            patient["id"],
-            patient["name"],
-            patient["procedure"],
-            patient["physician"],
-            patient["suite"]
-        ]).lower()
-        return search in searchable_text
-
-    risk_patients=[patient for patient in patient_list if patient["status"]=="risk" and matches_search(patient)]
-    upcoming_patients=[patient for patient in patient_list if matches_search(patient)]
-
-    return render(request,"dashboard.html",{
-        "procedures":procedures_count,
-        "ready":ready_count,
-        "pending":pending_count,
-        "risk":len(risk_patients) if search else risk_count,
-        "risk_patients":risk_patients,
-        "patients":upcoming_patients,
-        "search":request.GET.get("search","")
-    })
+    return render(request, "react_app.html")
 
 @login_required
 def patient_list(request):
