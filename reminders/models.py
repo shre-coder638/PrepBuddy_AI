@@ -12,6 +12,7 @@ class Reminder(models.Model):
         ("confirmed", "Confirmed"),
         ("missed", "Missed"),
         ("cancelled", "Cancelled"),
+        ("failed", "Failed"),
     ]
 
     procedure = models.ForeignKey(
@@ -27,14 +28,44 @@ class Reminder(models.Model):
     )
 
     scheduled_at = models.DateTimeField()
+    next_attempt_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+
     sent_at = models.DateTimeField(null=True, blank=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
+    
+    # OpenWA message tracking
+    openwa_message_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    
+    delivery_status = models.CharField(
+        max_length=20,
+        default="pending",
+        choices=[
+            ("pending", "Pending"),
+            ("accepted", "Accepted by OpenWA"),
+            ("sent", "Sent"),
+            ("delivered", "Delivered"),
+            ("read", "Read"),
+            ("failed", "Failed"),
+            ("unknown", "Unknown"),
+        ],
+    )
 
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default="pending"
     )
+
+    delivery_attempts = models.PositiveSmallIntegerField(default=0)
 
     confirmation_token = models.CharField(
         max_length=64,

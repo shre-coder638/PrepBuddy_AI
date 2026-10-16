@@ -16,8 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-
+from patients.api_views import patients_list
+from procedures.api_views import (
+    procedures_list,
+    procedure_timeline,
+)
 from .views import privacy_policy
+from accounts.api_views import doctor_profile_api
+from accounts.api_views import user_settings_api
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -27,4 +33,18 @@ urlpatterns = [
 
     path("api/reminders/", include("reminders.urls")),
     path("api/notifications/", include("notifications.urls")),
+    path("api/protocols/", include("protocols.api_urls")),
+    path("api/procedures/", procedures_list, name="procedures-list"),
+    path(
+        "api/procedures/<int:procedure_id>/timeline/",
+        procedure_timeline,
+        name="procedure-timeline-api",
+    ),
+    path(
+        "api/patients/",
+        patients_list,
+        name="patients-list",
+    ),
+    path("api/doctor-profile/", doctor_profile_api, name="doctor-profile-api"),
+    path("api/settings/", user_settings_api, name="user-settings-api"),
 ]

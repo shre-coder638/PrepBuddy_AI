@@ -1,0 +1,245 @@
+:root {
+  --login-ink: #14213d;
+  --login-muted: #667085;
+  --login-border: #d9e2ec;
+  --login-primary: #246bfe;
+  --login-primary-dark: #1554d1;
+  --login-background: #f4f8fc;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(36, 107, 254, 0.12), transparent 32rem),
+    radial-gradient(circle at 90% 88%, rgba(61, 191, 172, 0.14), transparent 30rem),
+    var(--login-background);
+  color: var(--login-ink);
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.auth-navbar {
+  height: 76px;
+  padding: 0 clamp(1.25rem, 5vw, 5rem);
+  border-bottom: 1px solid rgba(217, 226, 236, 0.8);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(14px);
+}
+
+.auth-navbar .logo-section {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.auth-navbar .logo-icon,
+.auth-logo {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--login-primary), #54b7e9);
+  box-shadow: 0 10px 24px rgba(36, 107, 254, 0.24);
+}
+
+.auth-navbar .logo-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  font-size: 1.45rem;
+}
+
+.auth-navbar .logo-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.auth-navbar .clinical-label {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #b9d2ff;
+  border-radius: 999px;
+  color: var(--login-primary-dark);
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.auth-page {
+  display: grid;
+  min-height: calc(100vh - 76px);
+  place-items: center;
+  padding: 3.5rem 1.25rem;
+}
+
+.auth-card {
+  width: min(100%, 27rem);
+  padding: clamp(2rem, 5vw, 3rem);
+  border: 1px solid rgba(217, 226, 236, 0.95);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 70px rgba(30, 63, 100, 0.12);
+}
+
+.auth-logo {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 1.5rem;
+  border-radius: 1.1rem;
+  font-size: 1.7rem;
+}
+
+.auth-card h1 {
+  margin: 0;
+  color: var(--login-ink);
+  font-size: clamp(1.55rem, 4vw, 1.85rem);
+  letter-spacing: -0.04em;
+  text-align: center;
+}
+
+.auth-subtitle {
+  margin: 0.6rem 0 2rem;
+  color: var(--login-muted);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 1.15rem;
+}
+
+.form-group label,
+.remember {
+  color: #344054;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.45rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid var(--login-border);
+  border-radius: 0.7rem;
+  background: #fbfdff;
+  color: var(--login-ink);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.form-group input::placeholder {
+  color: #98a2b3;
+}
+
+.form-group input:focus {
+  border-color: var(--login-primary);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(36, 107, 254, 0.12);
+}
+
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.35rem 0 1.5rem;
+}
+
+.remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.remember input {
+  accent-color: var(--login-primary);
+}
+
+.form-options a,
+.auth-footer a {
+  color: var(--login-primary-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.form-options a:hover,
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 0.82rem 1rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: linear-gradient(135deg, var(--login-primary), #3d8df5);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 10px 20px rgba(36, 107, 254, 0.2);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.login-btn:hover {
+  background: linear-gradient(135deg, var(--login-primary-dark), #2876df);
+  box-shadow: 0 14px 26px rgba(36, 107, 254, 0.28);
+  transform: translateY(-1px);
+}
+
+.login-btn:focus-visible,
+.form-options a:focus-visible,
+.auth-footer a:focus-visible {
+  outline: 3px solid rgba(36, 107, 254, 0.3);
+  outline-offset: 3px;
+}
+
+.auth-footer {
+  margin-top: 1.6rem;
+  color: var(--login-muted);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.auth-messages {
+  margin-bottom: 1.2rem;
+}
+
+.message {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.6rem;
+  background: #fff4e5;
+  color: #9a5b00;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 480px) {
+  .auth-navbar {
+    height: 68px;
+  }
+
+  .auth-navbar .clinical-label {
+    display: none;
+  }
+
+  .auth-page {
+    min-height: calc(100vh - 68px);
+    padding: 2rem 1rem;
+  }
+
+  .auth-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 1.2rem;
+  }
+
+  .form-options {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}

@@ -193,7 +193,20 @@ WHATSAPP_API_VERSION = os.getenv(
     "vXX.X",
 )
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 OPENWA_BASE_URL = "http://localhost:2785"
 OPENWA_API_KEY = os.getenv("OPENWA_API_KEY")
 OPENWA_SESSION_ID = "1f405068-86f3-4d84-b473-bc0632f5e772"
+
+# Disable real WhatsApp delivery unless explicitly enabled.
+WHATSAPP_SEND_ENABLED = os.getenv(
+    "WHATSAPP_SEND_ENABLED", "false"
+).lower() == "true"

@@ -28,10 +28,129 @@ def openwa_webhook(request):
         event = payload.get("event")
         data = payload.get("data", {})
 
+        if not isinstance(data, dict):
+            return JsonResponse(
+                {"error": "Invalid event data"},
+                status=400,
+            )
+
+        # Handle outbound-message delivery acknowledgements separately.
+        if event in ("message.ack", "message.failed"):
+            message_id = (
+                data.get("messageId")
+                or data.get("id")
+            )
+
+            raw_status = (
+                "failed"
+                if event == "message.failed"
+                else data.get("status", data.get("ack"))
+            )
+
+            if not message_id:
+                print("OpenWA acknowledgement has no message ID.")
+                return JsonResponse({
+                    "received": True,
+                    "updated": False,
+                    "reason": "Missing message ID",
+                })
+
+            if isinstance(raw_status, str):
+                delivery_status = raw_status.strip().lower()
+            else:
+                delivery_status = None
+
+            allowed_statuses = {
+                "sent",
+                "delivered",
+                "read",
+                "failed",
+            }
+
+            if delivery_status not in allowed_statuses:
+                print(
+                    "Unrecognized OpenWA acknowledgement status:",
+                    raw_status,
+                )
+                return JsonResponse({
+                    "received": True,
+                    "updated": False,
+                    "reason": "Unrecognized delivery status",
+                })
+
+            reminder = Reminder.objects.filter(
+                openwa_message_id=str(message_id),
+            ).first()
+
+            if reminder is None:
+                print(
+                    "No reminder matches OpenWA message ID:",
+                    message_id,
+                )
+                return JsonResponse({
+                    "received": True,
+                    "updated": False,
+                    "reason": "Message ID not found",
+                })
+
+            # Avoid regressing a known delivery state if events arrive
+            # out of order. A late failure must not undo delivery/read.
+            status_rank = {
+                "pending": 0,
+                "accepted": 1,
+                "sent": 2,
+                "delivered": 3,
+                "read": 4,
+            }
+
+            current_status = reminder.delivery_status
+
+            if (
+                current_status in ("delivered", "read")
+                and delivery_status == "failed"
+            ):
+                print(
+                    "Ignoring late failure for already delivered/read "
+                    f"reminder #{reminder.id}."
+                )
+                return JsonResponse({
+                    "received": True,
+                    "updated": False,
+                    "reason": "Existing delivery state takes precedence",
+                })
+
+            if (
+                delivery_status in status_rank
+                and current_status in status_rank
+                and status_rank[delivery_status] < status_rank[current_status]
+            ):
+                return JsonResponse({
+                    "received": True,
+                    "updated": False,
+                    "reason": "Stale acknowledgement",
+                })
+
+            if reminder.delivery_status != delivery_status:
+                reminder.delivery_status = delivery_status
+                reminder.save(update_fields=["delivery_status"])
+
+            print(
+                f"Reminder #{reminder.id} delivery status: "
+                f"{delivery_status}"
+            )
+
+            return JsonResponse({
+                "received": True,
+                "updated": True,
+                "reminder_id": reminder.id,
+                "delivery_status": delivery_status,
+            })
+
+        # Keep the existing inbound DONE handler unchanged.
         if event != "message.received":
             return JsonResponse({
                 "received": True,
-                "ignored": True
+                "ignored": True,
             })
 
         sender = data.get("from", "").strip()
@@ -181,4 +300,3 @@ def openwa_webhook(request):
         return JsonResponse({
             "error": str(e)
         }, status=500)
-
