@@ -47,4 +47,5 @@ urlpatterns = [
     ),
     path("api/doctor-profile/", doctor_profile_api, name="doctor-profile-api"),
     path("api/settings/", user_settings_api, name="user-settings-api"),
+    path("api/chatbot/", include("chatbot.urls")),
 ]

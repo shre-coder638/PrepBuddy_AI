@@ -9,6 +9,7 @@ import {
   Clock3,
   LayoutDashboard,
   Menu,
+  MessageCircle,
   MoreHorizontal,
   Search,
   Settings,
@@ -23,6 +24,7 @@ const navItems = [
   { label: "Patient details", icon: Users },
   { label: "Procedure timeline", icon: Clock3 },
   { label: "Protocols", icon: ClipboardList },
+  { label: "Preparation Assistant", icon: MessageCircle },
 ];
 
 function StatusBadge({ status }) {
@@ -1344,6 +1346,224 @@ export function Protocols() {
 }
 
 
+
+function PreparationAssistant() {
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      text: "Hello! I can help you find information in the stored preparation protocols. I will let you know when an answer is not available.",
+      sources: [],
+      needsClinicalTeam: false,
+    },
+  ]);
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  async function sendQuestion(event) {
+    event.preventDefault();
+
+    const text = question.trim();
+    if (!text || loading) return;
+
+    setMessages((current) => [
+      ...current,
+      { role: "user", text },
+    ]);
+    setQuestion("");
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/chatbot/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed (${response.status})`);
+      }
+
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          text: data.answer || "No answer was returned.",
+          sources: data.sources || [],
+          needsClinicalTeam: Boolean(data.needs_clinical_team),
+        },
+      ]);
+    } catch (err) {
+      setError(
+        err.message || "Unable to contact the assistant. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="mx-auto max-w-4xl">
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-soft text-brand">
+            <MessageCircle size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-ink">
+              Preparation Assistant
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              Find answers in stored procedure-preparation instructions.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-line p-4">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-emerald-700">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-ink">
+              PrepBuddy Assistant
+            </p>
+            <p className="text-xs text-muted">
+              Answers are limited to stored protocol information.
+            </p>
+          </div>
+          <span className="ml-auto rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+            Online
+          </span>
+        </div>
+
+        <div
+          aria-live="polite"
+          aria-label="Conversation"
+          className="max-h-[480px] min-h-[300px] space-y-4 overflow-y-auto bg-slate-50/70 p-4 sm:p-6"
+        >
+          {messages.map((message, index) => (
+            <div
+              key={`${index}-${message.role}`}
+              className={`flex ${
+                message.role === "user" ? "justify-end" : "justify-start"
+              }`}
+            >
+              <div
+                className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-6 sm:max-w-[80%] ${
+                  message.role === "user"
+                    ? "rounded-br-md bg-brand text-white"
+                    : "rounded-bl-md border border-line bg-white text-ink"
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{message.text}</p>
+
+                {message.sources?.length > 0 && (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <p className="mb-2 text-xs font-semibold">
+                      Matched protocol steps
+                    </p>
+                    {message.sources.map((source, sourceIndex) => (
+                      <div
+                        key={`${source.protocol}-${source.step}-${sourceIndex}`}
+                        className="mb-2 rounded-lg bg-slate-50 p-2 text-xs"
+                      >
+                        <p className="font-semibold">{source.step}</p>
+                        <p className="text-slate-500">{source.protocol}</p>
+                        {source.is_critical && (
+                          <p className="mt-1 font-medium text-amber-700">
+                            Critical step
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {message.needsClinicalTeam && (
+                  <div className="mt-3 flex gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                    <p>
+                      Please confirm the correct instructions with the
+                      patient's clinical team. Do not rely on an unanswered
+                      or incomplete protocol.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="text-sm text-muted" role="status">
+              Checking stored preparation instructions…
+            </div>
+          )}
+
+          <div ref={endRef} />
+        </div>
+
+        {error && (
+          <p role="alert" className="border-t border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
+
+        <form onSubmit={sendQuestion} className="border-t border-line bg-white p-4">
+          <label htmlFor="assistant-question" className="mb-2 block text-xs font-medium text-muted">
+            Ask about preparation instructions
+          </label>
+          <div className="flex items-end gap-2">
+            <textarea
+              id="assistant-question"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.nativeEvent.isComposing
+                ) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              maxLength={1000}
+              rows={2}
+              placeholder="Type your question…"
+              disabled={loading}
+              className="min-h-[48px] min-w-0 flex-1 resize-y rounded-xl border border-line bg-white px-3 py-3 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={loading || !question.trim()}
+              className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MessageCircle size={17} />
+              Send
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            This assistant does not replace personalized advice from your
+            clinical team.
+          </p>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+
+
 export default function App() {
   const [active, setActive] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1461,6 +1681,8 @@ export default function App() {
             />
           ) : active === "Protocols" ? (
             <Protocols />
+          ) : active === "Preparation Assistant" ? (
+            <PreparationAssistant />
           ) : active === "Settings" ? (
             <SettingsPage />
           ) : active === "Doctor profile" ? (
