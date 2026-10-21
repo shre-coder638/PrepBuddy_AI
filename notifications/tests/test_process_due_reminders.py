@@ -255,3 +255,25 @@ def test_reminder_waiting_for_retry_is_not_claimed(mock_send, setup_data):
     assert reminder.status == "pending"
     assert reminder.delivery_attempts == 1
     assert reminder.sent_at is None
+
+@pytest.mark.django_db
+@patch("notifications.tasks.send_reminder")
+def test_overdue_procedure_reminder_is_not_sent(mock_send, setup_data):
+    procedure = setup_data["procedure"]
+    procedure.scheduled_at = timezone.now() - timedelta(minutes=1)
+    procedure.save(update_fields=["scheduled_at", "updated_at"])
+
+    reminder = Reminder.objects.create(
+        procedure=procedure,
+        prep_step=setup_data["critical_step"],
+        scheduled_at=timezone.now() - timedelta(hours=2),
+        status="pending",
+    )
+
+    process_due_reminders()
+
+    reminder.refresh_from_db()
+
+    mock_send.assert_not_called()
+    assert reminder.status == "pending"
+    assert reminder.delivery_attempts == 0

@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 {% block title %}PrepBuddy AI - Register{% endblock %}
 {% block content %}
@@ -6,6 +7,7 @@
 <div class="auth-logo">⏱</div>
 <h1>Create your account</h1>
 <p class="auth-subtitle">Register your clinical staff account</p>
+
 {% if messages %}
 <div class="auth-messages">
 {% for message in messages %}
@@ -13,19 +15,36 @@
 {% endfor %}
 </div>
 {% endif %}
+
 {% if error %}
 <div class="auth-error">{{ error }}</div>
 {% endif %}
+
 <form method="POST" action="{% url 'register' %}">
 {% csrf_token %}
+
 <div class="form-group">
 <label for="name">Full Name</label>
-<input type="text" id="name" name="name" value="{{ name|default:'' }}" placeholder="Enter your full name" required>
+<input type="text" id="name" name="name"
+       value="{{ name|default:'' }}"
+       placeholder="Enter your full name" required>
 </div>
+
 <div class="form-group">
 <label for="email">Email Address</label>
-<input type="email" id="email" name="email" value="{{ email|default:'' }}" placeholder="Enter your email" required>
+<input type="email" id="email" name="email"
+       value="{{ email|default:'' }}"
+       placeholder="Enter your email" required>
 </div>
+
+<div class="form-group">
+<label for="phone_number">Phone Number</label>
+<input type="tel" id="phone_number" name="phone_number"
+       value="{{ phone_number|default:'' }}"
+       placeholder="Enter your WhatsApp number"
+       autocomplete="tel" required>
+</div>
+
 <div class="form-group">
 <label for="role">Role</label>
 <select id="role" name="role" required>
@@ -33,16 +52,51 @@
 <option value="doctor">Doctor</option>
 </select>
 </div>
+
+
+<div class="form-group" id="specialty-group">
+    <label for="specialty">Medical Specialty</label>
+    <select id="specialty" name="specialty">
+        <option value="">Select your specialty</option>
+        <option value="Gastroenterology">Gastroenterology</option>
+        <option value="Cardiology">Cardiology</option>
+        <option value="Neurology">Neurology</option>
+        <option value="Orthopedics">Orthopedics</option>
+        <option value="General Surgery">General Surgery</option>
+        <option value="Anesthesiology">Anesthesiology</option>
+        <option value="Pediatrics">Pediatrics</option>
+        <option value="Dermatology">Dermatology</option>
+        <option value="Radiology">Radiology</option>
+        <option value="Other">Other</option>
+    </select>
+</div>
+
+<div class="form-group" id="professional-role-group">
+    <label for="professional_role">Job Title</label>
+    <input
+        type="text"
+        id="professional_role"
+        name="professional_role"
+        placeholder="e.g. Consultant Cardiologist"
+    >
+</div>
+
+
 <div class="form-group">
 <label for="password">Password</label>
-<input type="password" id="password" name="password" placeholder="Create a password" required>
+<input type="password" id="password" name="password"
+       placeholder="Create a password" required>
 </div>
+
 <div class="form-group">
 <label for="confirm_password">Confirm Password</label>
-<input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+<input type="password" id="confirm_password" name="confirm_password"
+       placeholder="Confirm your password" required>
 </div>
+
 <button type="submit" class="login-btn">Create Account</button>
 </form>
+
 <div class="auth-footer">
 Already have an account?
 <a href="{% url 'login' %}">Sign in</a>

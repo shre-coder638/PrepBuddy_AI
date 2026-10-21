@@ -1,0 +1,208 @@
+from django.shortcuts import render
+import re
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+from protocols.models import PrepProtocol
+
+# Create your views here.
+
+# Questions that require guidance from the patient's clinical team.
+CLINICAL_ESCALATION_TERMS = {
+    "medication", "medicine", "medicines", "tablet", "tablets",
+    "pill", "pills", "dosage", "dose", "insulin",
+    "blood thinner", "allergy", "allergic", "side effect",
+    "symptom", "symptoms", "pain", "bleeding", "vomiting",
+    "pregnant", "pregnancy",
+}
+
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "am", "i", "me", "my",
+    "we", "you", "your", "can", "could", "would", "should",
+    "do", "does", "did", "what", "when", "where", "how",
+    "why", "to", "for", "of", "in", "on", "at", "and",
+    "or", "it", "this", "that", "before", "after", "please",
+    "tell", "about", "procedure", "instructions",
+}
+
+
+def tokenize(text):
+    words = re.findall(r"[a-z0-9]+", text.lower())
+    return {word for word in words if word not in STOP_WORDS}
+
+
+def answer_question(question):
+    normalized_question = question.lower()
+
+    # Do not advise patients on medication changes or clinical symptoms.
+    if any(term in normalized_question for term in CLINICAL_ESCALATION_TERMS):
+        return {
+            "answer": (
+                "I can't safely advise on medication changes or clinical "
+                "symptoms. Please contact your procedure's clinical team "
+                "for instructions specific to you."
+            ),
+            "sources": [],
+            "needs_clinical_team": True,
+        }
+
+    # Questions about exceptions or accidental deviations need human guidance.
+    exception_phrases = (
+        "accidentally ate",
+        "already ate",
+        "accidentally drank",
+        "already drank",
+        "broke my fast",
+        "missed a dose",
+        "missed my instruction",
+        "what if i",
+        "what happens if",
+        "is it safe for me",
+    )
+
+    if any(phrase in normalized_question for phrase in exception_phrases):
+        return {
+            "answer": (
+                "Your situation may need individual guidance. Please contact "
+                "your clinical team before changing or continuing your "
+                "preparation instructions."
+            ),
+            "sources": [],
+            "needs_clinical_team": True,
+        }
+
+    question_words = tokenize(question)
+
+    if not question_words:
+        return {
+            "answer": "Please ask a specific question about your preparation instructions.",
+            "sources": [],
+            "needs_clinical_team": False,
+        }
+
+    protocols = (
+        PrepProtocol.objects
+        .filter(is_active=True)
+        .prefetch_related("steps")
+        .order_by("name")
+    )
+
+    matches = []
+
+    for protocol in protocols:
+        protocol_text = f"{protocol.name} {protocol.description}"
+        protocol_words = tokenize(protocol_text)
+
+        for step in protocol.steps.all():
+            instruction = (step.instruction or "").strip()
+
+            # Ignore missing or placeholder instructions.
+            if instruction in {"", ".", "-", "N/A", "n/a"}:
+                continue
+        
+            step_text = f"{step.title} {instruction}"
+            step_words = tokenize(step_text)
+
+            # Rank by overlap with the instruction and protocol metadata.
+            step_overlap = question_words & step_words
+            protocol_overlap = question_words & protocol_words
+            score = (len(step_overlap) * 2) + len(protocol_overlap)
+
+            if score > 0:
+                matches.append({
+                    "score": score,
+                    "protocol": protocol.name,
+                    "title": step.title,
+                    "instruction": instruction,
+                    "minutes_before_procedure": step.minutes_before_procedure,
+                    "is_critical": step.is_critical,
+                })
+
+    matches.sort(key=lambda item: item["score"], reverse=True)
+    best_matches = matches[:3]
+
+    if not best_matches:
+        return {
+            "answer": (
+                "I couldn't find a matching answer in the active preparation "
+                "instructions. Please check your official instructions or "
+                "contact your clinical team."
+            ),
+            "sources": [],
+            "needs_clinical_team": True,
+        }
+
+    answer_lines = [
+        "Here is what I found in the stored preparation instructions:"
+    ]
+
+    sources = []
+
+    for match in best_matches:
+        timing = match["minutes_before_procedure"]
+
+        if timing == 0:
+            timing_text = "At the procedure time"
+        elif timing < 60:
+            timing_text = f"{timing} minutes before the procedure"
+        elif timing % 60 == 0:
+            timing_text = f"{timing // 60} hours before the procedure"
+        else:
+            timing_text = f"{timing} minutes before the procedure"
+
+        answer_lines.append(
+            f"{match['title']} ({timing_text}): {match['instruction']}"
+        )
+
+        sources.append({
+            "protocol": match["protocol"],
+            "step": match["title"],
+            "minutes_before_procedure": timing,
+            "is_critical": match["is_critical"],
+        })
+
+    answer_lines.append(
+        "Follow the instructions provided by your own clinical team if "
+        "they differ from this information."
+    )
+
+    return {
+        "answer": "\n\n".join(answer_lines),
+        "sources": sources,
+        "needs_clinical_team": False,
+    }
+
+
+@csrf_exempt
+def chatbot_api(request):
+    if request.method != "POST":
+        return JsonResponse(
+            {"error": "POST request required"},
+            status=405,
+        )
+
+    import json
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    question = data.get("question", "")
+
+    if not isinstance(question, str):
+        return JsonResponse({"error": "Question must be text"}, status=400)
+
+    question = question.strip()
+
+    if not question:
+        return JsonResponse({"error": "Question is required"}, status=400)
+
+    if len(question) > 1000:
+        return JsonResponse(
+            {"error": "Question must be 1000 characters or fewer"},
+            status=400,
+        )
+
+    result = answer_question(question)
+    return JsonResponse(result)

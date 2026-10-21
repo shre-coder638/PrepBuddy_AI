@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import StaffProfile
+from accounts.models import DoctorProfile
 
 PATIENTS={
 "rahul":{
@@ -538,18 +539,22 @@ def login(request):
     return render(request, "login.html")
 
 
+
 def register(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
 
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
+        phone_number = request.POST.get("phone_number", "").strip()
         email = request.POST.get("email", "").strip().lower()
         role = request.POST.get("role", "clinic_staff")
+        specialty = request.POST.get("specialty", "").strip()
+        professional_role = request.POST.get("professional_role", "").strip()
         password = request.POST.get("password", "")
         confirm_password = request.POST.get("confirm_password", "")
 
-        if not name or not email or not password or not confirm_password:
+        if not name or not email or not phone_number or not password or not confirm_password:
             messages.error(request, "Please fill in all required fields.")
             return render(request, "register.html")
 
@@ -564,6 +569,10 @@ def register(request):
         if role not in ["clinic_staff", "doctor"]:
             role = "clinic_staff"
 
+        if role == "doctor" and not specialty:
+            messages.error(request, "Please select your medical specialty.")
+            return render(request, "register.html")
+
         if User.objects.filter(username=email).exists():
             messages.error(request, "An account with this email already exists.")
             return render(request, "register.html")
@@ -574,11 +583,33 @@ def register(request):
             password=password,
             first_name=name,
         )
-        StaffProfile.objects.create(user=user, role=role)
-        messages.success(request, "Account created successfully. Please sign in.")
+
+        StaffProfile.objects.create(
+            user=user,
+            role=role,
+            phone_number=phone_number,
+        )
+
+        DoctorProfile.objects.create(
+            user=user,
+            full_name=name,
+            professional_role=(
+                professional_role
+                or ("Doctor" if role == "doctor" else "Clinic Staff")
+            ),
+            specialty=specialty if role == "doctor" else "",
+            email=email,
+            phone=phone_number,
+        )
+
+        messages.success(
+            request,
+            "Account created successfully. Please sign in.",
+        )
         return redirect("login")
 
     return render(request, "register.html")
+
 
 
 @login_required
@@ -586,3 +617,4 @@ def logout_view(request):
     logout(request)
     request.session.flush()
     return redirect("login")
+

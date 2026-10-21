@@ -7,28 +7,27 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import DoctorProfile
 
+from django.contrib.auth.decorators import login_required
 
+from .models import DoctorProfile
+
+
+@login_required
 @ensure_csrf_cookie
 @require_http_methods(["GET", "PUT"])
 def doctor_profile_api(request):
-    # For now, use the first Django user as the doctor.
-    User = get_user_model()
-    user = User.objects.order_by("id").first()
-
-    if user is None:
-        return JsonResponse(
-            {"error": "No Django user exists. Create a user first."},
-            status=404,
-        )
+    user = request.user
+    staff_profile = getattr(user, "staff_profile", None)
+    phone_number = staff_profile.phone_number if staff_profile else ""
 
     profile, created = DoctorProfile.objects.get_or_create(
         user=user,
         defaults={
             "full_name": user.get_full_name() or user.username,
-            "professional_role": "Lead gastroenterologist",
-            "specialty": "Gastroenterology",
+            "professional_role": "Clinic Staff",
+            "specialty": "",
             "email": user.email or "",
-            "phone": "",
+            "phone": phone_number,
         },
     )
 
@@ -43,7 +42,7 @@ def doctor_profile_api(request):
 
     try:
         data = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"error": "Invalid JSON."}, status=400)
 
     allowed_fields = [
@@ -56,7 +55,15 @@ def doctor_profile_api(request):
 
     for field in allowed_fields:
         if field in data:
-            setattr(profile, field, data[field])
+            value = data[field]
+
+            if not isinstance(value, str):
+                return JsonResponse(
+                    {"error": f"{field} must be a string."},
+                    status=400,
+                )
+
+            setattr(profile, field, value)
 
     profile.save()
 
@@ -141,4 +148,3 @@ def user_settings_api(request):
         "refresh_interval": settings_obj.refresh_interval,
         "retry_attempts": settings_obj.retry_attempts,
     })
-

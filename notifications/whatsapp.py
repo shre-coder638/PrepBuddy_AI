@@ -65,15 +65,18 @@ def send_whatsapp_template(
     chat_id = f"{phone}@c.us"
 
     message = (
-        f"👋 Hello {patient_name}!\n\n"
-        f"🔔 PrepBuddy Reminder\n\n"
+        f"Hello {patient_name}!\n\n"
+        f"PrepBuddy Reminder\n\n"
         f"Procedure: {procedure_name}\n\n"
         f"Preparation step:\n"
         f"{preparation_step}\n\n"
         f"Instructions:\n"
         f"{instructions}\n\n"
-        f"Please complete this step and reply DONE when finished."
+        f"Please complete this step and reply DONE when finished.\n\n"
+        f"Have a question about your preparation instructions?\n"
+        f"Reply TALK TO ASSISTANT to chat with PrepBuddy."
     )
+    
 
     result = send_openwa_message(
         chat_id=chat_id,

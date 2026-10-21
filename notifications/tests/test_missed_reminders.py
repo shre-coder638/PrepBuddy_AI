@@ -168,3 +168,112 @@ def test_recent_sent_reminder_is_not_marked_missed(setup_data):
 
     assert reminder.status == "sent"
     assert procedure.status == "prep_in_progress"
+
+@pytest.mark.django_db
+def test_pending_reminder_is_missed_after_procedure_time(setup_data):
+    procedure = setup_data["procedure"]
+    procedure.scheduled_at = timezone.now() - timedelta(minutes=1)
+    procedure.save(update_fields=["scheduled_at", "updated_at"])
+
+    reminder = create_reminder(
+        procedure,
+        setup_data["noncritical_step"],
+        "pending",
+    )
+
+    check_missed_reminders()
+
+    reminder.refresh_from_db()
+    procedure.refresh_from_db()
+
+    assert reminder.status == "missed"
+
+
+@pytest.mark.django_db
+def test_past_procedure_with_pending_critical_reminder_needs_attention(
+    setup_data,
+):
+    procedure = setup_data["procedure"]
+    procedure.scheduled_at = timezone.now() - timedelta(minutes=1)
+    procedure.save(update_fields=["scheduled_at", "updated_at"])
+
+    reminder = create_reminder(
+        procedure,
+        setup_data["critical_step"],
+        "pending",
+    )
+
+    check_missed_reminders()
+
+    reminder.refresh_from_db()
+    procedure.refresh_from_db()
+
+    assert reminder.status == "missed"
+    assert procedure.status == "attention_needed"
+
+
+@pytest.mark.django_db
+def test_pending_reminder_for_future_procedure_stays_pending(setup_data):
+    procedure = setup_data["procedure"]
+    procedure.scheduled_at = timezone.now() + timedelta(hours=1)
+    procedure.save(update_fields=["scheduled_at", "updated_at"])
+
+    reminder = create_reminder(
+        procedure,
+        setup_data["noncritical_step"],
+        "pending",
+    )
+
+    check_missed_reminders()
+
+    reminder.refresh_from_db()
+
+    assert reminder.status == "pending"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("status", ["cancelled", "completed"])
+def test_past_procedure_does_not_change_terminal_status(
+    setup_data, status
+):
+    procedure = setup_data["procedure"]
+    procedure.scheduled_at = timezone.now() - timedelta(minutes=1)
+    procedure.status = status
+    procedure.save(update_fields=["scheduled_at", "status", "updated_at"])
+
+    create_reminder(
+        procedure,
+        setup_data["critical_step"],
+        "pending",
+    )
+
+    check_missed_reminders()
+
+    procedure.refresh_from_db()
+
+    assert procedure.status == status
+
+
+@pytest.mark.django_db
+def test_all_confirmed_reminders_reconcile_scheduled_procedure_to_ready(
+    setup_data,
+):
+    procedure = setup_data["procedure"]
+    procedure.status = "scheduled"
+    procedure.save(update_fields=["status", "updated_at"])
+
+    create_reminder(
+        procedure,
+        setup_data["critical_step"],
+        "confirmed",
+    )
+    create_reminder(
+        procedure,
+        setup_data["noncritical_step"],
+        "confirmed",
+    )
+
+    check_missed_reminders()
+
+    procedure.refresh_from_db()
+    assert procedure.status == "ready"

@@ -6,9 +6,9 @@ export default {
       colors: {
         ink: "#182230",
         muted: "#667085",
-        line: "#e7ebf0",
-        brand: "#5263d8",
-        "brand-soft": "#eef0ff",
+        line: "#dfe6f2",
+        brand: "#4f5fd1",
+        "brand-soft": "#e9edff",
       },
       boxShadow: {
         card: "0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.03)",

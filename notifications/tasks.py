@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from procedures.models import Procedure
 from reminders.models import Reminder
+from reminders.views import sync_procedure_status
 from .services import send_reminder
 
 from django.db import models, transaction
@@ -26,12 +27,21 @@ RETRY_DELAYS_MINUTES = {
 def _claim_reminder(reminder_id, now):
     """Atomically claim one eligible pending reminder."""
     with transaction.atomic():
+        
         updated = (
             Reminder.objects.filter(
                 id=reminder_id,
                 status="pending",
                 scheduled_at__lte=now,
                 delivery_attempts__lt=MAX_DELIVERY_ATTEMPTS,
+                procedure__scheduled_at__gt=now,
+            )
+            .exclude(
+                procedure__status__in=[
+                    "cancelled",
+                    "completed",
+                    "attention_needed",
+                ]
             )
             .filter(
                 models.Q(next_attempt_at__isnull=True)
@@ -39,6 +49,7 @@ def _claim_reminder(reminder_id, now):
             )
             .update(delivery_attempts=F("delivery_attempts") + 1)
         )
+
 
         if updated != 1:
             return None
@@ -53,18 +64,28 @@ def _claim_reminder(reminder_id, now):
 def process_due_reminders():
     now = timezone.now()
 
+    
+    stale_cutoff = now - timedelta(hours=2)
+
     due_ids = list(
         Reminder.objects.filter(
             status="pending",
             scheduled_at__lte=now,
+            scheduled_at__gte=stale_cutoff,
+            procedure__scheduled_at__gt=now,
         )
         .filter(
             models.Q(next_attempt_at__isnull=True)
             | models.Q(next_attempt_at__lte=now)
         )
+        .exclude(
+            procedure__status__in=["cancelled", "completed", "attention_needed"]
+        )
         .order_by("id")
         .values_list("id", flat=True)
     )
+
+
 
     for reminder_id in due_ids:
         reminder = _claim_reminder(reminder_id, timezone.now())
@@ -134,6 +155,7 @@ def process_due_reminders():
             )
 
 
+
 def _schedule_retry(reminder):
     if reminder.delivery_attempts >= MAX_DELIVERY_ATTEMPTS:
         reminder.status = "failed"
@@ -183,6 +205,40 @@ def check_missed_reminders():
                     f"Procedure #{procedure.id}"
                 )
 
+    # Mark overdue pending reminders as missed once the procedure
+    # itself has started or passed. Do not process reminders for
+    # cancelled or completed procedures.
+    overdue_pending = Reminder.objects.filter(
+        status="pending",
+        scheduled_at__lte=now,
+        procedure__scheduled_at__lte=now,
+    ).exclude(
+        procedure__status__in=["cancelled", "completed"]
+    ).select_related("prep_step", "procedure")
+
+    for reminder in overdue_pending:
+        reminder.status = "missed"
+        reminder.next_attempt_at = None
+        reminder.save(
+            update_fields=["status", "next_attempt_at"]
+        )
+
+        if reminder.prep_step.is_critical:
+            procedure = reminder.procedure
+
+            if procedure.status != "attention_needed":
+                procedure.status = "attention_needed"
+                procedure.save(
+                    update_fields=["status", "updated_at"]
+                )
+
+            logger.warning(
+                "Critical pending reminder %s became overdue. "
+                "Procedure %s requires attention.",
+                reminder.id,
+                procedure.id,
+            )
+    
     # Reconcile existing missed critical reminders as well.
     # This also catches a procedure incorrectly changed back to "ready".
     affected_procedure_ids = (
@@ -202,3 +258,119 @@ def check_missed_reminders():
         if procedure.status != "attention_needed":
             procedure.status = "attention_needed"
             procedure.save(update_fields=["status", "updated_at"])
+
+    # Reconcile preparation progress for procedures that still
+    # have an eligible status. Preserve terminal and attention states.
+    eligible_procedures = Procedure.objects.exclude(
+        status__in=["cancelled", "completed", "attention_needed"]
+    ).filter(
+        reminders__isnull=False,
+    ).distinct()
+
+    for procedure in eligible_procedures:
+        sync_procedure_status(procedure)
+
+
+@shared_task
+def process_single_test_reminder(reminder_id):
+    """
+    Safely test one reminder without processing other due reminders.
+    Uses the patient's saved phone number and respects the WhatsApp guard.
+    """
+    from django.conf import settings
+
+    if not settings.WHATSAPP_SEND_ENABLED:
+        logger.warning(
+            "Test reminder %s was not processed: WhatsApp sending is disabled.",
+            reminder_id,
+        )
+        return {
+            "success": False,
+            "reason": "whatsapp_sending_disabled",
+            "reminder_id": reminder_id,
+        }
+
+    reminder = _claim_reminder(reminder_id, timezone.now())
+
+    if reminder is None:
+        return {
+            "success": False,
+            "reason": "reminder_not_eligible",
+            "reminder_id": reminder_id,
+        }
+
+    try:
+        
+        from .whatsapp import send_whatsapp_template
+        
+        result = send_whatsapp_template(
+            phone_number=reminder.procedure.patient.phone_number,
+            patient_name="PrepBuddy test",
+            procedure_name="Connectivity test",
+            preparation_step="Test message only",
+            instructions=(
+                "This is a PrepBuddy connectivity test. "
+                "No medical action is required."
+            ),
+        )
+
+
+        if isinstance(result, dict) and result:
+            reminder.status = "sent"
+            reminder.sent_at = timezone.now()
+            reminder.next_attempt_at = None
+
+            message_id = result.get("messageId")
+            if message_id:
+                reminder.openwa_message_id = str(message_id)
+                reminder.delivery_status = "accepted"
+            else:
+                reminder.delivery_status = "unknown"
+
+            reminder.save(
+                update_fields=[
+                    "status",
+                    "sent_at",
+                    "next_attempt_at",
+                    "openwa_message_id",
+                    "delivery_status",
+                ]
+            )
+
+            return {
+                "success": True,
+                "reminder_id": reminder.id,
+                "status": reminder.status,
+                "delivery_status": reminder.delivery_status,
+            }
+
+        _schedule_retry(reminder)
+        return {
+            "success": False,
+            "reason": "empty_or_invalid_response",
+            "reminder_id": reminder.id,
+            "status": reminder.status,
+        }
+
+    except Exception:
+        _schedule_retry(reminder)
+        logger.exception(
+            "Single test reminder %s failed on attempt %s.",
+            reminder.id,
+            reminder.delivery_attempts,
+        )
+        return {
+            "success": False,
+            "reason": "delivery_exception",
+            "reminder_id": reminder.id,
+            "status": reminder.status,
+        }
+
+@shared_task
+def scheduler_heartbeat():
+    """Harmless task to verify Celery Beat scheduling."""
+    logger.info("PrepBuddy scheduler heartbeat executed successfully.")
+    return {
+        "success": True,
+        "task": "scheduler_heartbeat",
+    }

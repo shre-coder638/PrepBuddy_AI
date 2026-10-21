@@ -36,14 +36,14 @@ _embedding_cache = {}
 _cache_lock = threading.Lock()
 
 
-
 CLINICAL_ESCALATION_TERMS = {
     "medication", "medicine", "medicines", "tablet", "tablets",
-    "pill", "pills", "dosage", "dose", "insulin",
-    "blood thinner", "allergy", "allergic", "side effect",
+    "pill", "pills", "insulin", "blood thinner",
+    "allergy", "allergic", "side effect",
     "symptom", "symptoms", "pain", "bleeding", "vomiting",
     "pregnant", "pregnancy",
 }
+
 
 EXCEPTION_PHRASES = (
     "accidentally ate",

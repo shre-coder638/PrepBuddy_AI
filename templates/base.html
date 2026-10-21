@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% if request.path == '/login/' or request.path == '/register/' %}
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+{% endif %}
 {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -43,10 +46,12 @@ Dr. Sharma
 </div>
 <div class="doctor-role">Lead Gastroenterologist</div>
 </div>
-{% if request.session.user_id %}
+{% if request.user.is_authenticated %}
 <form method="post" action="{% url 'logout' %}" class="logout-form">
-{% csrf_token %}
-<button type="submit" class="logout-btn">Logout</button>
+    {% csrf_token %}
+    <button type="submit" class="logout-btn">
+        <span aria-hidden="true">↪</span> Log Out
+    </button>
 </form>
 {% endif %}
 </div>
