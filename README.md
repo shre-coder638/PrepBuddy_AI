@@ -13,6 +13,7 @@ place.
 - Optional WhatsApp notifications
 - Django-rendered pages and a React/Tailwind dashboard
 - REST endpoints for the frontend and integrations
+- 
 
 ## Technology
 
