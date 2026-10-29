@@ -374,6 +374,7 @@ class RagBehaviorTests(SimpleTestCase):
 
         self.assertEqual(results, [])
 
+
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
     def test_contextual_followup_rejects_unrelated_single_word_match(
