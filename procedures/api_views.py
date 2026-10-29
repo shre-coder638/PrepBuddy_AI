@@ -1,4 +1,4 @@
-
+from accounts.permissions import get_authorized_staff_profile
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
@@ -19,20 +19,33 @@ from patients.models import Patient
 from protocols.models import PrepProtocol
 from reminders.services import generate_reminders_for_procedure
 
-
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def procedures_list(request):
     if request.method == "POST":
+        if get_authorized_staff_profile(request.user) is None:
+            status = 401 if not request.user.is_authenticated else 403
+            return JsonResponse(
+                {"error": "You are not authorized to manage procedures."},
+                status=status,
+            )
         return create_procedure(request)
 
-    procedures = Procedure.objects.select_related(
-        "patient"
-    ).order_by("-scheduled_at")
+    if get_authorized_staff_profile(request.user) is None:
+        status = 401 if not request.user.is_authenticated else 403
+        return JsonResponse(
+            {"error": "You are not authorized to view procedures."},
+            status=status,
+        )
 
-    data = []
-    for procedure in procedures:
-        data.append({
+    procedures = (
+        Procedure.objects
+        .select_related("patient")
+        .order_by("-scheduled_at")
+    )
+
+    data = [
+        {
             "id": procedure.id,
             "patient": {
                 "id": procedure.patient.id,
@@ -42,10 +55,11 @@ def procedures_list(request):
             "procedure_name": procedure.procedure_name,
             "scheduled_at": procedure.scheduled_at.isoformat(),
             "status": procedure.status,
-        })
+        }
+        for procedure in procedures
+    ]
 
     return JsonResponse({"procedures": data})
-
 
 @require_http_methods(["DELETE"])
 def delete_procedure_api(request, procedure_id):
@@ -99,7 +113,6 @@ def delete_procedure_api(request, procedure_id):
         {"message": "Procedure deleted successfully."},
         status=200,
     )
-
 
 @require_GET
 def procedure_timeline(request, procedure_id):
@@ -167,7 +180,6 @@ def procedure_timeline(request, procedure_id):
         },
         "timeline": timeline,
     })
-
 
 @csrf_exempt
 @require_http_methods(["POST"])

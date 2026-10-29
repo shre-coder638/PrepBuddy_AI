@@ -4,12 +4,13 @@ from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
+from django.contrib.auth.models import User
+from frontend.models import StaffProfile
 
 from patients.models import Patient
 from protocols.models import PrepProtocol, PrepStep
 from reminders.models import Reminder
 from procedures.models import Procedure
-
 
 class CreateProcedureAPITests(TestCase):
     def setUp(self):
@@ -34,6 +35,15 @@ class CreateProcedureAPITests(TestCase):
             instruction="Test instruction",
             minutes_before_procedure=30,
         )
+        self.user = User.objects.create_user(
+            username="test_staff",
+            password="test_password123",
+        )
+        StaffProfile.objects.create(
+            user=self.user,
+            role="clinic_staff",
+        )
+        self.client.force_login(self.user)
 
     def post_procedure(self, **overrides):
         payload = {

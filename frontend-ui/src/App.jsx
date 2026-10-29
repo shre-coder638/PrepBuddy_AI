@@ -20,14 +20,12 @@ import {
   X,
 } from "lucide-react";
 
-
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Patient details", icon: Users },
   { label: "Protocols", icon: ClipboardList },
   { label: "Create Procedure", icon: CalendarDays },
 ];
-
 
 const IST_OFFSET_MINUTES = 330;
 
@@ -74,7 +72,6 @@ function getIstDateTimeLocalValue(date = new Date()) {
   const istMilliseconds = date.getTime() + IST_OFFSET_MINUTES * 60 * 1000;
   return new Date(istMilliseconds).toISOString().slice(0, 16);
 }
-
 
 function StatusBadge({ status }) {
   const config = {
@@ -370,7 +367,7 @@ function Dashboard({ onOpenProcedure, onToast }) {
             <h2 className="text-base font-semibold text-ink">Upcoming procedures</h2>
             <p className="mt-1 text-xs text-muted">Live records returned by the Django API.</p>
           </div>
-          
+
           <div className="relative w-full sm:max-w-xs">
             <Search
               size={18}
@@ -423,7 +420,6 @@ function Dashboard({ onOpenProcedure, onToast }) {
     </div>
   );
 }
-
 
 function PatientDetails() {
   const [patients, setPatients] = useState([]);
@@ -590,19 +586,18 @@ function PatientDetails() {
     }
   }
 
-  
   async function deletePatient(patient) {
     const confirmed = window.confirm(
       `Delete patient "${patient.first_name} ${patient.last_name}"? This cannot be undone.`
     );
-  
+
     if (!confirmed) return;
-  
+
     setDeletingPatientId(patient.id);
     setDeleteError("");
     setSuccess("");
     setError("");
-  
+
     try {
       const response = await fetch(`/api/patients/${patient.id}/`, {
         method: "DELETE",
@@ -610,15 +605,15 @@ function PatientDetails() {
           "X-CSRFToken": getCookie("csrftoken"),
         },
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(
           data.error || `Could not delete patient (${response.status}).`
         );
       }
-  
+
       await loadPatients();
       setSuccess(
         `Patient ${patient.first_name} ${patient.last_name} deleted successfully.`
@@ -670,8 +665,6 @@ function PatientDetails() {
       setDeletingProcedureId(null);
     }
   }
-
-
 
   if (loading) {
     return <div className="p-8 text-sm text-muted">Loading patients...</div>;
@@ -877,7 +870,6 @@ function PatientDetails() {
             {deleteError}
           </div>
         )}
-        
 
       <section className="card overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -928,12 +920,12 @@ function PatientDetails() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
                       {(patient.procedures ?? []).length} procedure(s)
                     </span>
-                  
+
                     <button
                       type="button"
                       onClick={() => deletePatient(patient)}
@@ -943,7 +935,7 @@ function PatientDetails() {
                       {deletingPatientId === patient.id ? "Deleting..." : "Delete"}
                     </button>
                   </div>
-                  
+
                 </div>
 
                 {(patient.procedures ?? []).length > 0 && (
@@ -962,7 +954,7 @@ function PatientDetails() {
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <StatusBadge status={procedure.status} />
-                      
+
                           <button
                             type="button"
                             onClick={() => deleteProcedureFromPatient(procedure)}
@@ -984,7 +976,6 @@ function PatientDetails() {
     </div>
   );
 }
-
 
 function ProcedureTimeline({ procedureId, onBack }) {
   const [data, setData] = useState(null);
@@ -1038,12 +1029,12 @@ function ProcedureTimeline({ procedureId, onBack }) {
       setActionMessage("");
       return;
     }
-  
+
     try {
       setConfirmingId(reminder.id);
       setActionMessage("");
       setActionError("");
-  
+
       const response = await fetch(
         `/api/reminders/${encodeURIComponent(
            reminder.confirmation_token
@@ -1057,13 +1048,13 @@ function ProcedureTimeline({ procedureId, onBack }) {
       );
 
       const result = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(
           result.error || "Unable to confirm this preparation step."
         );
       }
-  
+
       setActionMessage(result.message || "Preparation step confirmed.");
       await loadTimeline(true);
     } catch (err) {
@@ -1071,21 +1062,21 @@ function ProcedureTimeline({ procedureId, onBack }) {
     } finally {
       setConfirmingId(null);
     }
-  }; 
-  
+  };
+
   const submitFollowUp = async (reminder) => {
     const draft = followUpDrafts[reminder.id] || {
       contact_outcome: "reached",
       preparation_status: "unknown",
       notes: "",
     };
-  
+
     if (reminder.status !== "missed") {
       setFollowUpError("Follow-up can only be recorded for a missed reminder.");
       setFollowUpMessage("");
       return;
     }
-  
+
     if (!getCookie("csrftoken")) {
       setFollowUpError(
         "CSRF token is missing. Reload the application through the Django login session and try again."
@@ -1093,12 +1084,12 @@ function ProcedureTimeline({ procedureId, onBack }) {
       setFollowUpMessage("");
       return;
     }
-  
+
     try {
       setFollowUpSubmittingId(reminder.id);
       setFollowUpError("");
       setFollowUpMessage("");
-  
+
       const response = await fetch("/api/reminders/follow-ups/", {
         method: "POST",
         headers: {
@@ -1112,9 +1103,9 @@ function ProcedureTimeline({ procedureId, onBack }) {
           notes: draft.notes,
         }),
       });
-  
+
       const result = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(
           result.error ||
@@ -1123,11 +1114,11 @@ function ProcedureTimeline({ procedureId, onBack }) {
               : "Unable to record staff follow-up.")
         );
       }
-  
+
       setFollowUpMessage(
         `Follow-up recorded for reminder #${reminder.id}. Clinical review is still required.`
       );
-  
+
       await loadTimeline(true);
     } catch (err) {
       setFollowUpError(err.message || "Unable to record staff follow-up.");
@@ -1135,7 +1126,7 @@ function ProcedureTimeline({ procedureId, onBack }) {
       setFollowUpSubmittingId(null);
     }
   };
-  
+
   const updateFollowUpDraft = (reminderId, field, value) => {
     setFollowUpDrafts((previous) => ({
       ...previous,
@@ -1153,21 +1144,21 @@ function ProcedureTimeline({ procedureId, onBack }) {
     const confirmed = window.confirm(
       `Delete procedure "${data?.procedure?.procedure_name}"? Its reminders will also be deleted. This action cannot be undone.`
     );
-  
+
     if (!confirmed) return;
-  
+
     if (!getCookie("csrftoken")) {
       setDeleteProcedureError(
         "CSRF token is missing. Reload the application through the Django session and try again."
       );
       return;
     }
-  
+
     setDeletingProcedure(true);
     setDeleteProcedureError("");
     setActionMessage("");
     setActionError("");
-  
+
     try {
       const response = await fetch(`/api/procedures/${procedureId}/`, {
         method: "DELETE",
@@ -1175,15 +1166,15 @@ function ProcedureTimeline({ procedureId, onBack }) {
           "X-CSRFToken": getCookie("csrftoken"),
         },
       });
-  
+
       const result = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(
           result.error || `Could not delete procedure (${response.status}).`
         );
       }
-  
+
       onBack();
     } catch (err) {
       setDeleteProcedureError(
@@ -1263,7 +1254,7 @@ function ProcedureTimeline({ procedureId, onBack }) {
           >
             Back to workspace
           </button>
-        
+
           <button
             onClick={() => loadTimeline(true)}
             disabled={refreshing || deletingProcedure}
@@ -1271,7 +1262,7 @@ function ProcedureTimeline({ procedureId, onBack }) {
           >
             {refreshing ? "Refreshing..." : "Refresh timeline"}
           </button>
-        
+
           <button
             type="button"
             onClick={deleteProcedure}
@@ -1281,7 +1272,7 @@ function ProcedureTimeline({ procedureId, onBack }) {
             {deletingProcedure ? "Deleting..." : "Delete procedure"}
           </button>
         </div>
-        
+
         {deleteProcedureError && (
           <p
             role="alert"
@@ -1411,7 +1402,7 @@ function ProcedureTimeline({ procedureId, onBack }) {
                                   : "text-amber-700"
                               }`}
                             />
-                      
+
                             <div className="min-w-0 flex-1">
                               <p
                                 className={`text-sm font-bold ${
@@ -1424,13 +1415,13 @@ function ProcedureTimeline({ procedureId, onBack }) {
                                   ? "Critical preparation step needs review"
                                   : "Reminder delivery failed"}
                               </p>
-                      
+
                               <p className="mt-1 text-sm text-slate-700">
                                 {reminder.status === "missed"
                                   ? "This step was not confirmed in time. Clinic staff must contact the patient, verify what preparation was completed, and consult the approved clinical protocol before deciding what happens next."
                                   : "The reminder could not be delivered after the available attempts. Clinic staff should contact the patient and verify that the preparation instructions were received."}
                               </p>
-                      
+
                               {reminder.status === "missed" ? (
                                 <div className="mt-3 rounded-lg border border-red-200 bg-white p-3">
                                   <p className="text-sm font-semibold text-slate-800">
@@ -1491,7 +1482,6 @@ function ProcedureTimeline({ procedureId, onBack }) {
     </div>
   );
 }
-
 
 function SettingsPage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -1689,7 +1679,6 @@ function SettingsPage() {
   );
 }
 
-
 function getCookie(name) {
   const cookie = document.cookie
     .split("; ")
@@ -1697,7 +1686,6 @@ function getCookie(name) {
 
   return cookie ? decodeURIComponent(cookie.split("=").slice(1).join("=")) : "";
 }
-
 
 function DoctorProfilePage({ doctor, setDoctor }) {
   const [editing, setEditing] = useState(false);
@@ -1953,10 +1941,9 @@ function DoctorProfilePage({ doctor, setDoctor }) {
   );
 }
 
-
 export function Protocols() {
   const [protocols, setProtocols] = useState([]);
-  const [protocolSearch, setProtocolSearch] = useState("");  
+  const [protocolSearch, setProtocolSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
@@ -2471,7 +2458,6 @@ export function Protocols() {
         </section>
       )}
 
-      
       <div className="relative w-full sm:max-w-md">
         <Search
           size={18}
@@ -2591,7 +2577,6 @@ export function Protocols() {
   );
 }
 
-
 function PreparationAssistant() {
   const [messages, setMessages] = useState([
     {
@@ -2602,19 +2587,56 @@ function PreparationAssistant() {
     },
   ]);
   const [question, setQuestion] = useState("");
+  const [procedures, setProcedures] = useState([]);
+  const [procedureId, setProcedureId] = useState("");
+  const [loadingProcedures, setLoadingProcedures] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const endRef = useRef(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+    let cancelled = false;
+
+    async function loadProcedures() {
+      try {
+        const response = await fetch("/api/procedures/");
+        if (!response.ok) {
+          throw new Error("Unable to load procedures.");
+        }
+
+        const data = await response.json();
+
+        if (!cancelled) {
+          const available = data.procedures || [];
+          setProcedures(available);
+          setProcedureId(available.length ? String(available[0].id) : "");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Unable to load procedures.");
+        }
+      } finally {
+        if (!cancelled) setLoadingProcedures(false);
+      }
+    }
+
+    loadProcedures();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function sendQuestion(event) {
     event.preventDefault();
 
     const text = question.trim();
     if (!text || loading) return;
+
+    if (!procedureId) {
+      setError("Select a procedure before asking a question.");
+      return;
+    }
 
     setMessages((current) => [
       ...current,
@@ -2627,8 +2649,14 @@ function PreparationAssistant() {
     try {
       const response = await fetch("/api/chatbot/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": Me("csrftoken")
+        },
+        body: JSON.stringify({
+          question: text,
+          procedure_id: Number(procedureId),
+        }),
       });
 
       const data = await response.json();
@@ -2763,6 +2791,44 @@ function PreparationAssistant() {
           </p>
         )}
 
+        <div className="border-b border-line p-4">
+          <label
+            htmlFor="assistant-procedure"
+            className="mb-2 block text-sm font-medium text-ink"
+          >
+            Procedure
+          </label>
+
+          <select
+            id="assistant-procedure"
+            value={procedureId}
+            onChange={(event) => setProcedureId(event.target.value)}
+            disabled={loadingProcedures || loading}
+            className="w-full rounded-xl border border-line bg-white px-3 py-3 text-sm text-ink"
+          >
+            <option value="">
+              {loadingProcedures ? "Loading procedures..." : "Select a procedure"}
+            </option>
+
+            {procedures.map((procedure) => (
+              <option key={procedure.id} value={String(procedure.id)}>
+                {procedure.patient.first_name} {procedure.patient.last_name}
+                {" — "}
+                {procedure.procedure_name}
+                {" — "}
+                {new Date(procedure.scheduled_at).toLocaleString()}
+              </option>
+            ))}
+          </select>
+
+          {!loadingProcedures && procedures.length === 0 && (
+            <p className="mt-2 text-sm text-muted">
+              No procedures are available. Create a procedure before asking
+              preparation questions.
+            </p>
+          )}
+        </div>
+
         <form onSubmit={sendQuestion} className="border-t border-line bg-white p-4">
           <label htmlFor="assistant-question" className="mb-2 block text-xs font-medium text-muted">
             Ask about preparation instructions
@@ -2790,7 +2856,7 @@ function PreparationAssistant() {
             />
             <button
               type="submit"
-              disabled={loading || !question.trim()}
+              disabled={loading || !question.trim() || !procedureId}
               className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <MessageCircle size={17} />
@@ -2806,7 +2872,6 @@ function PreparationAssistant() {
     </section>
   );
 }
-
 
 function CreateProcedure({ onCreated, onCancel }) {
   const [patients, setPatients] = useState([]);
@@ -2884,17 +2949,17 @@ function CreateProcedure({ onCreated, onCancel }) {
     }
 
     const hour24 = (Number(hour) % 12) + (period === "PM" ? 12 : 0);
-    
+
     const scheduledAtIST =
       `${procedureDate}T${String(hour24).padStart(2, "0")}:${minute}`;
-    
+
     const procedureDateUtc = istDateTimeToUtc(scheduledAtIST);
 
     if (!procedureDateUtc || Number.isNaN(procedureDateUtc.getTime())) {
       setError("Please enter a valid procedure date and time.");
       return;
     }
-    
+
     if (procedureDateUtc <= new Date()) {
       setError("The procedure date and time must be in the future (IST).");
       return;
@@ -3139,8 +3204,6 @@ function CreateProcedure({ onCreated, onCancel }) {
     </section>
   );
 }
-
-
 
 export default function App() {
   const [active, setActive] = useState("Dashboard");

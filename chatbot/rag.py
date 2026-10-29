@@ -35,7 +35,6 @@ SAFE_FALLBACK = (
 _embedding_cache = {}
 _cache_lock = threading.Lock()
 
-
 CLINICAL_ESCALATION_TERMS = {
     "medication", "medicine", "medicines", "tablet", "tablets",
     "pill", "pills", "insulin", "blood thinner",
@@ -43,7 +42,6 @@ CLINICAL_ESCALATION_TERMS = {
     "symptom", "symptoms", "pain", "bleeding", "vomiting",
     "pregnant", "pregnancy",
 }
-
 
 EXCEPTION_PHRASES = (
     "accidentally ate",
@@ -57,7 +55,6 @@ EXCEPTION_PHRASES = (
     "what happens if",
     "is it safe for me",
 )
-
 
 def safety_response(question):
     """Return a safe response for questions requiring clinical review."""
@@ -87,13 +84,10 @@ def safety_response(question):
 
     return None
 
-
-
 def _ollama_url(path):
     """Allow the local Ollama URL to be overridden through Django settings."""
     base_url = getattr(settings, "OLLAMA_BASE_URL", OLLAMA_BASE_URL)
     return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-
 
 def _embed_texts(texts):
     """Generate embeddings for one or more strings through Ollama."""
@@ -117,7 +111,6 @@ def _embed_texts(texts):
 
     return embeddings
 
-
 def _cosine_similarity(left, right):
     """Calculate cosine similarity without requiring NumPy."""
     if len(left) != len(right):
@@ -132,7 +125,6 @@ def _cosine_similarity(left, right):
     return sum(a * b for a, b in zip(left, right)) / (
         left_norm * right_norm
     )
-
 
 def _load_knowledge():
     """Load usable steps and reuse embeddings until the source changes."""
@@ -153,6 +145,7 @@ def _load_knowledge():
                 continue
 
             content = (
+                f"Protocol ID: {protocol.pk}\n"
                 f"Procedure: {protocol.name}\n"
                 f"Protocol description: {protocol.description}\n"
                 f"Step: {step.title}\n"
@@ -160,6 +153,7 @@ def _load_knowledge():
             )
 
             documents.append({
+                "protocol_id": protocol.pk,
                 "content": content,
                 "protocol": protocol.name,
                 "step": step.title,
@@ -200,7 +194,6 @@ def _load_knowledge():
 
     return documents
 
-
 STOP_WORDS = {
     "a", "an", "the", "is", "are", "am", "was", "were",
     "do", "does", "did", "can", "could", "would", "should",
@@ -214,26 +207,42 @@ STOP_WORDS = {
 
 
 def _has_keyword_overlap(question, document):
-    """Reject results with no meaningful words shared with the source."""
+    """Check for meaningful shared word stems between question and step."""
 
     def keywords(text):
         words = re.findall(r"[a-z]+", text.lower())
-        result = set()
+        return {
+            (
+             word[:-3] if len(word) > 5 and word.endswith("ing")
+             else word[:-1] if len(word) > 4 and word.endswith("s")
+             else word
+            )
+            for word in words
+            if word not in STOP_WORDS and len(word) > 2
+        }
 
-        for word in words:
-            if word in STOP_WORDS:
-                continue
+    question_words = keywords(question)
+    document_words = keywords(
+        f"{document.get('step', '')} "
+        f"{document.get('instruction', '')}"
+    )
 
-            # Small normalization for common English word endings.
-            if len(word) > 5 and word.endswith("ing"):
-                word = word[:-3]
-            elif len(word) > 4 and word.endswith("s"):
-                word = word[:-1]
+    return len(question_words & document_words) >= 2
 
-            if word and word not in STOP_WORDS:
-                result.add(word)
+def _has_single_keyword_overlap(question, document):
+    """Check whether at least one meaningful topic stem matches."""
 
-        return result
+    def keywords(text):
+        words = re.findall(r"[a-z]+", text.lower())
+        return {
+            (
+             word[:-3] if len(word) > 5 and word.endswith("ing")
+             else word[:-1] if len(word) > 4 and word.endswith("s")
+             else word
+        )
+            for word in words
+            if word not in STOP_WORDS and len(word) > 2
+        }
 
     question_words = keywords(question)
     document_words = keywords(
@@ -243,18 +252,37 @@ def _has_keyword_overlap(question, document):
 
     return bool(question_words & document_words)
 
-def retrieve_steps(question, limit=MAX_CONTEXT_STEPS):
-    """Return relevant protocol steps ranked by semantic similarity."""
+def retrieve_steps(
+    question,
+    limit=MAX_CONTEXT_STEPS,
+    protocol_id=None,
+):
+    """Retrieve relevant steps, optionally restricted to one protocol."""
     question = question.strip()
     if not question:
         return []
 
+    # A contextual follow-up includes the earlier patient question.
+    followup_match = re.search(
+        r"Earlier patient question:\s*(.*?)\s*"
+        r"Current patient follow-up:",
+        question,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
     documents = _load_knowledge()
+
+    if protocol_id is not None:
+        documents = [
+            document
+            for document in documents
+            if document["protocol_id"] == protocol_id
+        ]
+
     if not documents:
         return []
 
     question_embedding = _embed_texts([question])[0]
-
     ranked = []
 
     for document in documents:
@@ -263,16 +291,36 @@ def retrieve_steps(question, limit=MAX_CONTEXT_STEPS):
             document["embedding"],
         )
 
-        if (score >= MIN_SIMILARITY 
-            and _has_keyword_overlap(question, document)):
-         ranked.append((score, document))
+        if score < MIN_SIMILARITY:
+            continue
+
+        if followup_match:
+            earlier_question = followup_match.group(1).strip()
+
+            relevant = _has_keyword_overlap(earlier_question, document)
+
+            if not relevant:
+                words = re.findall(r"[a-z]+", earlier_question.lower())
+                meaningful_words = [
+                    word for word in words
+                    if word not in STOP_WORDS and len(word) > 2
+                ]
+
+                relevant = (
+                    len(meaningful_words) == 1
+                    and _has_single_keyword_overlap(earlier_question, document)
+                )
+        else:
+            relevant = _has_keyword_overlap(question, document)
+
+        if relevant:
+            ranked.append((score, document))
 
     ranked.sort(key=lambda item: item[0], reverse=True)
 
-    results = []
-
-    for score, document in ranked[:limit]:
-        results.append({
+    return [
+        {
+            "protocol_id": document["protocol_id"],
             "protocol": document["protocol"],
             "step": document["step"],
             "instruction": document["instruction"],
@@ -281,13 +329,11 @@ def retrieve_steps(question, limit=MAX_CONTEXT_STEPS):
             ),
             "is_critical": document["is_critical"],
             "similarity": round(score, 4),
-        })
+        }
+        for score, document in ranked[:limit]
+    ]
 
-    return results
-
-
-
-def answer_with_rag(question):
+def answer_with_rag(question, protocol_id=None):
     """
     Retrieve relevant preparation steps and return their stored text.
 
@@ -298,8 +344,48 @@ def answer_with_rag(question):
     if escalation is not None:
         return escalation
 
+    normalized = " ".join(question.lower().strip().split())
+
+    general_help_phrases = {
+        "hi",
+        "hello",
+        "hey",
+        "hi prepbuddy",
+        "hello prepbuddy",
+        "hey prepbuddy",
+        "what can you help me with",
+        "what can you help me with?",
+        "what can you do",
+        "what do you do",
+        "help",
+        "help me",
+    }
+
+    if (
+        normalized in general_help_phrases
+        or "what can you help me with" in normalized
+        or "what can you do" in normalized
+        or "what do you do" in normalized
+    ):
+        return {
+            "answer": (
+                "Hello! I'm PrepBuddy, your preparation-instructions "
+                "assistant. I can help you understand the preparation "
+                "steps stored for your procedure and answer questions "
+                "when those instructions contain a reliable answer. "
+                "For medication questions, symptoms, or situations "
+                "not covered by your instructions, please contact "
+                "your clinical team."
+            ),
+            "sources": [],
+            "needs_clinical_team": False,
+        }
+
     try:
-        sources = retrieve_steps(question)
+        sources = retrieve_steps(
+            question,
+            protocol_id=protocol_id,
+        )
 
         if not sources:
             return {
@@ -313,7 +399,7 @@ def answer_with_rag(question):
         source = sources[0]
 
         answer = (
-            f"Stored instruction — {source['step']}: "
+            f"Stored instruction ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â {source['step']}: "
             f"{source['instruction']}"
         )
 

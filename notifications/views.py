@@ -6,16 +6,21 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from chatbot.views import answer_question
+from chatbot.conversation import save_conversation_message
 from patients.models import Patient
 from reminders.models import Reminder
 from django.utils.timezone import now
 from django.db import transaction, IntegrityError
+from procedures.models import Procedure
+from chatbot.conversation import (
+    save_conversation_message,
+    get_recent_conversation,
+    resolve_followup_question,
+    is_context_dependent_followup,
+)
 
 from .whatsapp import send_openwa_message
 from .models import WhatsAppAssistantSession, ProcessedWhatsAppMessage
-
-
-
 
 def mark_whatsapp_message_processed(message_record):
     if message_record is not None:
@@ -30,7 +35,6 @@ def mark_whatsapp_message_processed(message_record):
             ]
         )
 
-
 def release_whatsapp_message_claim(message_record):
     if message_record is not None and not message_record.is_processed:
         message_record.processing_started_at = None
@@ -38,12 +42,10 @@ def release_whatsapp_message_claim(message_record):
             update_fields=["processing_started_at"]
         )
 
-
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-
 
 def claim_whatsapp_message(message_id):
     """
@@ -110,7 +112,6 @@ def claim_whatsapp_message(message_id):
 
             return record, True
 
-
 @csrf_exempt
 def openwa_webhook(request):
 
@@ -135,7 +136,6 @@ def openwa_webhook(request):
                 {"error": "Invalid event data"},
                 status=400,
             )
-        
 
         # Ignore group and newsletter messages.
         if event == "message.received":
@@ -153,7 +153,6 @@ def openwa_webhook(request):
                     "ignored": True,
                     "reason": "Group and newsletter messages are not supported",
                 })
-
 
         # Claim incoming messages to prevent concurrent duplicate processing.
         message_id = None
@@ -229,14 +228,11 @@ def openwa_webhook(request):
             ).first()
 
             if reminder is None:
-                print(
-                    "No reminder matches OpenWA message ID:",
-                    message_id,
-                )
                 return JsonResponse({
                     "received": True,
                     "updated": False,
-                    "reason": "Message ID not found",
+                    "ignored": True,
+                    "reason": "Not a scheduled reminder message",
                 })
 
             # Avoid regressing a known delivery state if events arrive
@@ -312,7 +308,7 @@ def openwa_webhook(request):
              "received": True,
              "message": "Empty message ignored",
          })
-        
+
         normalized_message = " ".join(message.strip().upper().split())
 
         is_done = normalized_message == "DONE"
@@ -373,7 +369,7 @@ def openwa_webhook(request):
                 f"+{phone_number}",
             ]
         ).first()
-        
+
         if patient is None:
             print(
                 "Ignoring WhatsApp message from an unregistered number."
@@ -439,9 +435,105 @@ def openwa_webhook(request):
                     "assistant_activated": False,
                 })
 
-            try:
-                result = answer_question(message)
+            # Load prior messages before saving the current question.
+            history = get_recent_conversation(session)
 
+            # Save the incoming question for this activated session.
+            save_conversation_message(
+                session=session,
+                role="patient",
+                content=message,
+            )
+
+            normalized_for_help = " ".join(
+                message.lower().strip().split()
+            )
+
+            is_general_help = (
+                normalized_for_help in {
+                    "hi",
+                    "hello",
+                    "hey",
+                    "hi prepbuddy",
+                    "hello prepbuddy",
+                    "hey prepbuddy",
+                    "what can you help me with",
+                    "what can you help me with?",
+                    "what can you do",
+                    "what do you do",
+                    "help",
+                    "help me",
+                }
+                or "what can you help me with" in normalized_for_help
+                or "what can you do" in normalized_for_help
+                or "what do you do" in normalized_for_help
+            )
+
+            try:
+                procedure = (
+                    Procedure.objects
+                    .filter(
+                        patient=patient,
+                        status__in=[
+                            "prep_in_progress",
+                            "attention_needed",
+                        ],
+                    )
+                    .select_related("protocol")
+                    .order_by("scheduled_at")
+                    .first()
+                )
+
+                if procedure is None:
+                    procedure = (
+                        Procedure.objects
+                        .filter(
+                            patient=patient,
+                            status="scheduled",
+                            scheduled_at__gte=timezone.now(),
+                        )
+                        .select_related("protocol")
+                        .order_by("scheduled_at")
+                        .first()
+                    )
+
+                if procedure is None and not is_general_help:
+                    result = {
+                        "answer": (    "I couldn't identify an upcoming procedure linked to your "    "patient record. Please contact your care team to confirm "    "your procedure details before relying on preparation advice."),
+                        "sources": [],
+                        "needs_clinical_team": True,
+                    }
+                elif is_general_help:
+                    result = answer_question(message)
+                else:
+                    resolved_question = resolve_followup_question(
+                        message,
+                        history,
+                    )
+
+                    if resolved_question is not None:
+                        result = answer_question(
+                            resolved_question,
+                            protocol_id=procedure.protocol_id,
+                        )
+
+                    elif is_context_dependent_followup(message):
+                        result = {
+                            "answer": (
+                                "I'm not sure which preparation instruction you're "
+                                "referring to. Please check your official preparation "
+                                "instructions or contact your clinical team for "
+                                "clarification."
+                            ),
+                            "sources": [],
+                            "needs_clinical_team": True,
+                        }
+
+                    else:
+                        result = answer_question(
+                            message,
+                            protocol_id=procedure.protocol_id,
+                        )
                 answer = result.get("answer", "")
                 if not isinstance(answer, str) or not answer.strip():
                     answer = (
@@ -458,6 +550,21 @@ def openwa_webhook(request):
                         answer = f"{answer}\n\nPreparation step: {step}"
 
                 send_openwa_message(sender, answer)
+
+                # Persist the reply after OpenWA accepts the send operation.
+                try:
+                    save_conversation_message(
+                        session=session,
+                        role="assistant",
+                        content=answer,
+                    )
+                except Exception as history_error:
+                    # A history-write failure should not cause a second reply to be sent.
+                    print(
+                        "Could not save PrepBuddy assistant reply to conversation history: "
+                        f"{history_error}"
+                    )
+
                 mark_whatsapp_message_processed(message_record)
 
                 return JsonResponse({
@@ -470,7 +577,7 @@ def openwa_webhook(request):
 
             except Exception:
                 print("Could not answer inbound WhatsApp question.")
-            
+
                 try:
                     send_openwa_message(
                         sender,
@@ -479,26 +586,25 @@ def openwa_webhook(request):
                         "instructions or contact your clinical team.",
                     )
                     mark_whatsapp_message_processed(message_record)
-            
+
                     return JsonResponse({
                         "received": True,
                         "answered": False,
                         "fallback": True,
                     })
-            
+
                 except Exception as send_error:
                     print(
                         f"Could not send WhatsApp fallback: {send_error}"
                     )
                     release_whatsapp_message_claim(message_record)
-            
+
                     return JsonResponse({
                         "received": True,
                         "answered": False,
                         "fallback": False,
                         "error": "Could not send fallback message",
                     }, status=500)
-
 
         # --------------------------------------------------
         # Find the patient's latest sent reminder
@@ -520,20 +626,18 @@ def openwa_webhook(request):
             .first()
         )
 
-
         if not reminder:
             print(
                 f"No sent reminder found for phone {phone_number}"
             )
-        
+
             mark_whatsapp_message_processed(message_record)
-        
+
             return JsonResponse({
                 "received": True,
                 "confirmed": False,
                 "message": "No pending reminder found",
             })
-
 
         # --------------------------------------------------
         # Confirm reminder
@@ -554,7 +658,6 @@ def openwa_webhook(request):
             "Thank you. PrepBuddy has recorded your confirmation."
         )
 
-        
         # Send confirmation back to the actual WhatsApp chat.
         # The reminder is already confirmed in the database.
         try:
@@ -567,14 +670,13 @@ def openwa_webhook(request):
                 f"Could not send confirmation for reminder "
                 f"#{reminder.id}: {send_error}"
             )
-        
+
             return JsonResponse({
                 "received": True,
                 "confirmed": True,
                 "reminder_id": reminder.id,
                 "acknowledgement_sent": False,
             }, status=500)
-
 
         print(
             f"✅ Reminder #{reminder.id} confirmed!"

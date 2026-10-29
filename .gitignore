@@ -46,3 +46,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Celery Beat runtime state
+celerybeat-schedule*
+celerybeat-test-schedule*
+
+# Local backup files
+*.bak

@@ -10,7 +10,6 @@ from protocols.models import PrepProtocol, PrepStep
 from reminders.models import Reminder
 from notifications.tasks import check_missed_reminders
 
-
 @pytest.fixture
 def setup_data(db):
     """Create a patient, protocol, steps, and procedure for testing."""
@@ -56,7 +55,6 @@ def setup_data(db):
         "noncritical_step": noncritical_step,
     }
 
-
 def create_reminder(procedure, step, status, sent_at=None):
     return Reminder.objects.create(
         procedure=procedure,
@@ -65,7 +63,6 @@ def create_reminder(procedure, step, status, sent_at=None):
         sent_at=sent_at,
         status=status,
     )
-
 
 @pytest.mark.django_db
 def test_old_sent_critical_reminder_marks_procedure_attention_needed(
@@ -88,7 +85,6 @@ def test_old_sent_critical_reminder_marks_procedure_attention_needed(
     assert reminder.status == "missed"
     assert procedure.status == "attention_needed"
 
-
 @pytest.mark.django_db
 def test_old_sent_noncritical_reminder_does_not_flag_procedure(
     setup_data,
@@ -110,7 +106,6 @@ def test_old_sent_noncritical_reminder_does_not_flag_procedure(
     assert reminder.status == "missed"
     assert procedure.status == "prep_in_progress"
 
-
 @pytest.mark.django_db
 @pytest.mark.parametrize("status", ["cancelled", "completed"])
 def test_terminal_procedure_status_is_preserved(setup_data, status):
@@ -128,7 +123,6 @@ def test_terminal_procedure_status_is_preserved(setup_data, status):
 
     procedure.refresh_from_db()
     assert procedure.status == status
-
 
 @pytest.mark.django_db
 def test_ready_procedure_is_corrected_for_missed_critical_reminder(
@@ -148,7 +142,6 @@ def test_ready_procedure_is_corrected_for_missed_critical_reminder(
 
     procedure.refresh_from_db()
     assert procedure.status == "attention_needed"
-
 
 @pytest.mark.django_db
 def test_recent_sent_reminder_is_not_marked_missed(setup_data):
@@ -188,7 +181,6 @@ def test_pending_reminder_is_missed_after_procedure_time(setup_data):
 
     assert reminder.status == "missed"
 
-
 @pytest.mark.django_db
 def test_past_procedure_with_pending_critical_reminder_needs_attention(
     setup_data,
@@ -211,7 +203,6 @@ def test_past_procedure_with_pending_critical_reminder_needs_attention(
     assert reminder.status == "missed"
     assert procedure.status == "attention_needed"
 
-
 @pytest.mark.django_db
 def test_pending_reminder_for_future_procedure_stays_pending(setup_data):
     procedure = setup_data["procedure"]
@@ -229,7 +220,6 @@ def test_pending_reminder_for_future_procedure_stays_pending(setup_data):
     reminder.refresh_from_db()
 
     assert reminder.status == "pending"
-
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("status", ["cancelled", "completed"])
@@ -252,7 +242,6 @@ def test_past_procedure_does_not_change_terminal_status(
     procedure.refresh_from_db()
 
     assert procedure.status == status
-
 
 @pytest.mark.django_db
 def test_all_confirmed_reminders_reconcile_scheduled_procedure_to_ready(
