@@ -53,3 +53,4 @@ celerybeat-test-schedule*
 
 # Local backup files
 *.bak
+annotate_source.py
