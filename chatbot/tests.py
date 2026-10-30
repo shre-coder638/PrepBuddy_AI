@@ -74,12 +74,14 @@ class RagBehaviorTests(SimpleTestCase):
         self.assertEqual(result["sources"], [])
         mock_retrieve.assert_not_called()
 
+    @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
     def test_retrieval_ranks_relevant_steps(
         self,
         mock_embed,
         mock_load,
+        mock_relevance,
     ):
         mock_load.return_value = [
             {
@@ -104,7 +106,7 @@ class RagBehaviorTests(SimpleTestCase):
             },
         ]
         mock_embed.return_value = [[1.0, 0.0]]
-
+        mock_relevance.side_effect = [True, False]
         results = retrieve_steps("How do I follow the liquid diet?")
 
         self.assertEqual(len(results), 1)
@@ -156,11 +158,12 @@ class RagBehaviorTests(SimpleTestCase):
       self.assertTrue(result["needs_clinical_team"])
       self.assertIn("couldn't confidently find", result["answer"])
 
+    @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
     def test_retrieval_filters_by_protocol_id(
-        self, mock_embed, mock_load
-    ):
+    self,  mock_embed,
+    mock_load,  mock_relevance,):
         mock_load.return_value = [
             {
                 "protocol_id": 1,
@@ -185,6 +188,7 @@ class RagBehaviorTests(SimpleTestCase):
         ]
 
         mock_embed.return_value = [[1.0, 0.0]]
+        mock_relevance.return_value = True
 
         results = retrieve_steps(
             "How do I follow the clear liquid diet?",
@@ -202,12 +206,14 @@ class RagBehaviorTests(SimpleTestCase):
             )
         )
 
+    @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
-    def test_contextual_followup_retrieves_matching_stored_step(
+    def test_contextual_followup_retrieves_step_with_protocol_isolation(
         self,
         mock_embed,
         mock_load,
+        mock_relevance,
     ):
         mock_load.return_value = [
             {
@@ -235,6 +241,7 @@ class RagBehaviorTests(SimpleTestCase):
             },
         ]
         mock_embed.return_value = [[1.0, 0.0]]
+        mock_relevance.return_value = True
 
         results = retrieve_steps(
             (
@@ -249,12 +256,15 @@ class RagBehaviorTests(SimpleTestCase):
         self.assertEqual(results[0]["step"], "Fasting instruction")
         self.assertIn("approved fasting instructions", results[0]["instruction"])
 
+    
+    @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
-    def test_contextual_retrieval_never_returns_another_protocol(
+    def test_contextual_followup_retrieves_matching_stored_step(
         self,
         mock_embed,
         mock_load,
+        mock_relevance,
     ):
         mock_load.return_value = [
             {
@@ -279,6 +289,7 @@ class RagBehaviorTests(SimpleTestCase):
             },
         ]
         mock_embed.return_value = [[1.0, 0.0]]
+        mock_relevance.return_value = True
 
         results = retrieve_steps(
             "Earlier patient question: fasting. Current patient follow-up: And when?",
@@ -343,12 +354,14 @@ class RagBehaviorTests(SimpleTestCase):
         self.assertIn("clinical team", result["answer"])
         mock_retrieve.assert_not_called()
 
+    @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
     def test_unrelated_question_does_not_match_shared_procedure_name(
         self,
         mock_embed,
         mock_load,
+        mock_relevance,
     ):
         mock_load.return_value = [
             {
@@ -366,6 +379,7 @@ class RagBehaviorTests(SimpleTestCase):
             },
         ]
         mock_embed.return_value = [[0.8, 0.6]]
+        mock_relevance.return_value = False
 
         results = retrieve_steps(
             "Can I drink coffee before my ECG?",
@@ -375,12 +389,14 @@ class RagBehaviorTests(SimpleTestCase):
         self.assertEqual(results, [])
 
 
+    @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
     @patch("chatbot.rag._embed_texts")
     def test_contextual_followup_rejects_unrelated_single_word_match(
         self,
         mock_embed,
         mock_load,
+        mock_relevance,
     ):
         mock_load.return_value = [
             {
@@ -406,6 +422,7 @@ class RagBehaviorTests(SimpleTestCase):
             },
         ]
         mock_embed.return_value = [[1.0, 0.0]]
+        mock_relevance.side_effect = [True, False]
 
         results = retrieve_steps(
             (
@@ -418,4 +435,89 @@ class RagBehaviorTests(SimpleTestCase):
         self.assertTrue(results)
         self.assertTrue(
             all(result["step"] == "Fasting" for result in results)
+        )
+
+    @patch("chatbot.rag._ollama_judges_relevance")
+    @patch("chatbot.rag._load_knowledge")
+    @patch("chatbot.rag._embed_texts")
+    def test_unrelated_weather_question_does_not_retrieve_mri_step(
+        self,
+        mock_embed,
+        mock_load,
+        mock_relevance,
+    ):
+        mock_load.return_value = [
+            {
+                "protocol_id": 3,
+                "content": "MRI preparation",
+                "protocol": "Short-Notice MRI Preparation",
+                "step": "Prepare for your MRI",
+                "instruction": (
+                    "Follow the imaging team's instructions "
+                    "before entering the MRI scanner."
+                ),
+                "minutes_before_procedure": 60,
+                "is_critical": True,
+                "embedding": [1.0, 0.0],
+            },
+        ]
+        # Deliberately high similarity: topic relevance must still matter.
+        mock_embed.return_value = [[0.99, 0.01]]
+        mock_relevance.return_value = False
+        results = retrieve_steps(
+            "What will the weather be like tomorrow?",
+            protocol_id=3,
+        )
+
+        self.assertEqual(results, [])
+
+    @patch("chatbot.rag._ollama_judges_relevance")
+    @patch("chatbot.rag._load_knowledge")
+    @patch("chatbot.rag._embed_texts")
+    def test_xray_fasting_question_prefers_preparation_step(
+        self,
+        mock_embed,
+        mock_load,
+        mock_relevance,
+    ):
+        mock_load.return_value = [
+            {
+                "protocol_id": 13,
+                "content": "X-ray appointment",
+                "protocol": "Routine X-ray Preparation",
+                "step": "Confirm Your X-ray Appointment",
+                "instruction": (
+                    "Check the date, time, and location of your "
+                    "appointment."
+                ),
+                "minutes_before_procedure": 1440,
+                "is_critical": False,
+                "embedding": [0.99, 0.01],
+            },
+            {
+                "protocol_id": 13,
+                "content": "X-ray preparation fasting",
+                "protocol": "Routine X-ray Preparation",
+                "step": "Review Your Preparation Instructions",
+                "instruction": (
+                    "Some examinations may require fasting. "
+                    "Follow the imaging department's specific instructions."
+                ),
+                "minutes_before_procedure": 150,
+                "is_critical": True,
+                "embedding": [0.80, 0.60],
+            },
+        ]
+        mock_embed.return_value = [[0.80, 0.60]]
+        mock_relevance.side_effect = [True, False]
+
+        results = retrieve_steps(
+            "Do I need to fast before my X-ray?",
+            protocol_id=13,
+        )
+
+        self.assertTrue(results)
+        self.assertEqual(
+            results[0]["step"],
+            "Review Your Preparation Instructions",
         )

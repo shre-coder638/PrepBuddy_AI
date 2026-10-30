@@ -158,6 +158,8 @@ def is_context_dependent_followup(question):
     if not isinstance(question, str):
         return False
 
+
+
     normalized = re.sub(r"\s+", " ", question.lower()).strip()
 
     ambiguous_prefixes = (
