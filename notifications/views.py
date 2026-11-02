@@ -1,4 +1,5 @@
 import json
+import logging
 import requests
 
 from django.conf import settings
@@ -6,6 +7,8 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from chatbot.views import answer_question
+from chatbot.sentiment import analyze_patient_message
+from chatbot.response_generator import select_communication_style
 from chatbot.conversation import save_conversation_message
 from patients.models import Patient
 from reminders.models import Reminder
@@ -20,7 +23,9 @@ from chatbot.conversation import (
 )
 
 from .whatsapp import send_openwa_message
-from .models import WhatsAppAssistantSession, ProcessedWhatsAppMessage
+from .models import (WhatsAppAssistantSession, ProcessedWhatsAppMessage, WhatsAppMessageAnalysis)
+
+logger = logging.getLogger(__name__)
 
 def mark_whatsapp_message_processed(message_record):
     if message_record is not None:
@@ -124,8 +129,7 @@ def openwa_webhook(request):
     try:
         payload = json.loads(request.body)
 
-        print("\n📩 OpenWA webhook received:")
-        print(json.dumps(payload, indent=2))
+        logger.info("OpenWA webhook event received.")
 
         event = payload.get("event")
         data = payload.get("data", {})
@@ -162,7 +166,7 @@ def openwa_webhook(request):
             message_id = data.get("id") or data.get("messageId")
 
             if not message_id:
-                print("Incoming OpenWA message has no message ID.")
+                logger.warning("OpenWA inbound event omitted its message ID.")
                 return JsonResponse({
                     "received": True,
                     "processed": False,
@@ -193,7 +197,7 @@ def openwa_webhook(request):
             )
 
             if not message_id:
-                print("OpenWA acknowledgement has no message ID.")
+                logger.warning("OpenWA acknowledgement omitted its message ID.")
                 return JsonResponse({
                     "received": True,
                     "updated": False,
@@ -213,10 +217,7 @@ def openwa_webhook(request):
             }
 
             if delivery_status not in allowed_statuses:
-                print(
-                    "Unrecognized OpenWA acknowledgement status:",
-                    raw_status,
-                )
+                logger.warning("OpenWA acknowledgement had an unrecognized status.")
                 return JsonResponse({
                     "received": True,
                     "updated": False,
@@ -251,9 +252,9 @@ def openwa_webhook(request):
                 current_status in ("delivered", "read")
                 and delivery_status == "failed"
             ):
-                print(
-                    "Ignoring late failure for already delivered/read "
-                    f"reminder #{reminder.id}."
+                logger.info(
+                    "Ignored a late failure acknowledgement for reminder %s.",
+                    reminder.id,
                 )
                 return JsonResponse({
                     "received": True,
@@ -276,9 +277,10 @@ def openwa_webhook(request):
                 reminder.delivery_status = delivery_status
                 reminder.save(update_fields=["delivery_status"])
 
-            print(
-                f"Reminder #{reminder.id} delivery status: "
-                f"{delivery_status}"
+            logger.info(
+                "Reminder %s delivery status updated to %s.",
+                reminder.id,
+                delivery_status,
             )
 
             return JsonResponse({
@@ -298,8 +300,7 @@ def openwa_webhook(request):
         sender = data.get("from", "").strip()
         message = data.get("body", "").strip()
 
-        print(f"Sender: {sender}")
-        print(f"Message: {message}")
+        logger.info("OpenWA inbound patient message received.")
 
         # Accept DONE confirmations and ordinary patient questions.
         if not message:
@@ -334,11 +335,7 @@ def openwa_webhook(request):
             timeout=15,
         )
 
-        print(
-            "OpenWA phone lookup:",
-            phone_response.status_code,
-            phone_response.text
-        )
+        logger.info("OpenWA contact lookup completed with HTTP %s.", phone_response.status_code)
 
         phone_response.raise_for_status()
 
@@ -351,9 +348,6 @@ def openwa_webhook(request):
         # Remove + if OpenWA ever returns it
         phone_number = phone_number.lstrip("+")
 
-        print(
-            f"Resolved patient phone: {phone_number}"
-        )
 
         if not phone_number:
             return JsonResponse({
@@ -371,9 +365,7 @@ def openwa_webhook(request):
         ).first()
 
         if patient is None:
-            print(
-                "Ignoring WhatsApp message from an unregistered number."
-            )
+            logger.warning("Ignored an inbound message from an unregistered sender.")
             mark_whatsapp_message_processed(message_record)
             return JsonResponse({
                 "received": True,
@@ -439,11 +431,37 @@ def openwa_webhook(request):
             history = get_recent_conversation(session)
 
             # Save the incoming question for this activated session.
-            save_conversation_message(
+            patient_message = save_conversation_message(
                 session=session,
                 role="patient",
                 content=message,
             )
+
+            # Tone/intent analysis is best-effort and must never interrupt
+            # the established clinical-safety and RAG response path.
+            communication_style = "neutral"
+            requires_human = False
+            try:
+                analysis = analyze_patient_message(message)
+                analysis_record, _created = (
+                    WhatsAppMessageAnalysis.objects.update_or_create(
+                        message=patient_message,
+                        defaults=analysis,
+                    )
+                )
+                communication_style = select_communication_style(
+                    sentiment=getattr(analysis_record, "sentiment", "neutral"),
+                    emotion=getattr(analysis_record, "emotion", "calm"),
+                )
+                requires_human = bool(
+                    getattr(analysis_record, "requires_human", False)
+                    or getattr(analysis_record, "intent", "") == "clinical_concern"
+                )
+            except Exception:
+                logger.exception(
+                    "Patient message analysis failed; continuing with normal "
+                    "PrepBuddy response."
+                )
 
             normalized_for_help = " ".join(
                 message.lower().strip().split()
@@ -504,7 +522,11 @@ def openwa_webhook(request):
                         "needs_clinical_team": True,
                     }
                 elif is_general_help:
-                    result = answer_question(message)
+                    result = answer_question(
+                        message,
+                        communication_style=communication_style,
+                        requires_human=requires_human,
+                    )
                 else:
                     resolved_question = resolve_followup_question(
                         message,
@@ -515,6 +537,8 @@ def openwa_webhook(request):
                         result = answer_question(
                             resolved_question,
                             protocol_id=procedure.protocol_id,
+                            communication_style=communication_style,
+                            requires_human=requires_human,
                         )
 
                     elif is_context_dependent_followup(message):
@@ -533,6 +557,8 @@ def openwa_webhook(request):
                         result = answer_question(
                             message,
                             protocol_id=procedure.protocol_id,
+                            communication_style=communication_style,
+                            requires_human=requires_human,
                         )
                 answer = result.get("answer", "")
                 if not isinstance(answer, str) or not answer.strip():
@@ -560,9 +586,8 @@ def openwa_webhook(request):
                     )
                 except Exception as history_error:
                     # A history-write failure should not cause a second reply to be sent.
-                    print(
-                        "Could not save PrepBuddy assistant reply to conversation history: "
-                        f"{history_error}"
+                    logger.warning(
+                        "Assistant reply history persistence failed after send."
                     )
 
                 mark_whatsapp_message_processed(message_record)
@@ -576,7 +601,7 @@ def openwa_webhook(request):
                 })
 
             except Exception:
-                print("Could not answer inbound WhatsApp question.")
+                logger.exception("Inbound WhatsApp question processing failed.")
 
                 try:
                     send_openwa_message(
@@ -594,9 +619,7 @@ def openwa_webhook(request):
                     })
 
                 except Exception as send_error:
-                    print(
-                        f"Could not send WhatsApp fallback: {send_error}"
-                    )
+                    logger.error("WhatsApp fallback response could not be sent.")
                     release_whatsapp_message_claim(message_record)
 
                     return JsonResponse({
@@ -627,9 +650,7 @@ def openwa_webhook(request):
         )
 
         if not reminder:
-            print(
-                f"No sent reminder found for phone {phone_number}"
-            )
+            logger.info("No unconfirmed sent reminder matched an inbound DONE reply.")
 
             mark_whatsapp_message_processed(message_record)
 
@@ -665,10 +686,9 @@ def openwa_webhook(request):
                 sender,
                 confirmation_message,
             )
-        except Exception as send_error:
-            print(
-                f"Could not send confirmation for reminder "
-                f"#{reminder.id}: {send_error}"
+        except Exception:
+            logger.error(
+                "DONE confirmation was recorded, but its WhatsApp acknowledgement failed."
             )
 
             return JsonResponse({
@@ -678,16 +698,13 @@ def openwa_webhook(request):
                 "acknowledgement_sent": False,
             }, status=500)
 
-        print(
-            f"✅ Reminder #{reminder.id} confirmed!"
-        )
+        logger.info("Reminder %s was confirmed by an inbound DONE reply.", reminder.id)
         mark_whatsapp_message_processed(message_record)
 
         return JsonResponse({
             "received": True,
             "confirmed": True,
             "reminder_id": reminder.id,
-            "patient_phone": phone_number,
         })
 
     except json.JSONDecodeError:
@@ -696,12 +713,9 @@ def openwa_webhook(request):
             "error": "Invalid JSON"
         }, status=400)
 
-    except Exception as e:
-
-        print(
-            f"❌ OpenWA webhook error: {e}"
-        )
-
+    except Exception:
+        # Do not return provider/database exception text to the public caller.
+        logger.exception("OpenWA webhook processing failed.")
         return JsonResponse({
-            "error": str(e)
+            "error": "Webhook processing failed"
         }, status=500)

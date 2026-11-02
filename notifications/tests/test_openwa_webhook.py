@@ -357,6 +357,8 @@ def test_registered_patient_question_uses_procedure_protocol(
     mock_answer.assert_called_once_with(
         "How do I prepare for my procedure?",
         protocol_id=procedure.protocol_id,
+        communication_style="neutral",
+        requires_human=False,
     )
     mock_send.assert_called()
 

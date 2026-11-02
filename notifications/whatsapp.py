@@ -36,15 +36,16 @@ def send_openwa_message(chat_id, text):
         timeout=15,
     )
 
-    print(
-        "OpenWA send response:",
-        response.status_code,
-        response.text,
-    )
-
+    # Do not log response bodies: providers may include message metadata or
+    # recipient information. The caller records the outcome without PHI.
     response.raise_for_status()
 
-    return response.json()
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            "OpenWA returned a non-JSON response."
+        ) from exc
 
 
 
@@ -90,6 +91,6 @@ def send_whatsapp_template(
 
     # Check explicit failure indicators if the API provides them.
     if result.get("success") is False or result.get("sent") is False:
-        raise RuntimeError(f"OpenWA reported delivery failure: {result}")
+        raise RuntimeError("OpenWA reported a delivery failure.")
 
     return result

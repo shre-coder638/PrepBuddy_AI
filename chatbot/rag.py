@@ -58,8 +58,19 @@ EXCEPTION_PHRASES = (
     "is it safe for me",
 )
 
-def safety_response(question):
-    """Return a safe response for questions requiring clinical review."""
+def safety_response(question, requires_human=False):
+    """Return a safe response when text rules or message analysis require review."""
+    if requires_human:
+        return {
+            "answer": (
+                "Your message may need personal guidance from your care team. "
+                "I can't safely resolve this through the stored preparation "
+                "instructions. Please contact your clinical team for support."
+            ),
+            "sources": [],
+            "needs_clinical_team": True,
+        }
+
     normalized = question.lower()
 
     if any(term in normalized for term in CLINICAL_ESCALATION_TERMS):
@@ -238,6 +249,59 @@ def _document_keywords(document):
     )
     return _normalized_keywords(text)
 
+# Explicit terminology equivalences reviewed for patient-language retrieval.
+# These are retrieval aids, not clinical advice.
+RETRIEVAL_CONCEPTS = {
+    "jewellery": {
+        "jewelry", "bracelets", "rings", "jewellery",
+        "earrings", "earring", "chains", "chain",
+        "stud", "bracelet", "studs", "ring",
+        "necklace", "necklaces"
+    },
+
+    "hearing_aids": {
+        "hear", "hearing", "aid", "aids",
+        "hearingaid", "hearingaids",
+        "hearingdevice", "hearingdevices",
+    },
+
+    "watches": {
+        "watch", "watche", "watches",
+        "wristwatch", "wristwatche", "wristwatches",
+        "timepiece", "timepieces"
+    },
+    "pacemaker": {
+        "pacemaker", "pacemakers",
+        "cardiac", "defibrillator", "defibrillators",
+        "heart", "implantable", "icd", "icds",
+    },
+    "arrival_timing": {
+        "arrive", "arriv", "arrival", 
+        "reach", "reaching", "hospital", 
+        "hospitals", "imaging", "department",
+        "report", "reporting",
+    },
+    "fasting": {
+        "fast", "fasting", "food", "eat", "eating",
+        "drink", "drinking", "water", "liquid",
+        "meal", "meals", "snack", "snacks",
+    }    
+}
+
+
+def _has_explicit_concept_match(question, document):
+    """
+    Match a recognized patient term to an explicitly related
+    term in the stored instruction.
+    """
+    question_words = _normalized_keywords(question)
+    document_words = _document_keywords(document)
+
+    for aliases in RETRIEVAL_CONCEPTS.values():
+        if question_words & aliases and document_words & aliases:
+            return True
+
+    return False
 
 def _has_keyword_overlap(question, document):
     """Check for at least two shared meaningful keywords."""
@@ -410,11 +474,51 @@ def retrieve_steps(
 
     ranked.sort(key=lambda item: item[0], reverse=True)
 
-    # Ask Ollama to judge a bounded set of candidates, not every document.
+    # Start with the top three similarity-ranked candidates.
     candidates = ranked[:min(3, len(ranked))]
+    
+    # Also include candidates with an explicit terminology match,
+    # even if they fall outside the top three.
+    candidate_ids = {id(document) for _, document in candidates}
+    
+    for score, document in ranked[3:]:
+        if (
+            id(document) not in candidate_ids
+            and _has_explicit_concept_match(
+                evaluation_question,
+                document,
+            )
+        ):
+            candidates.append((score, document))
+            candidate_ids.add(id(document))
+
+    
     relevant = []
+    arrival_matches = []
 
     for score, document in candidates:
+
+        # Preserve explicit arrival-related matches.
+        if (
+            "arrival_timing" in RETRIEVAL_CONCEPTS
+            and _has_explicit_concept_match(
+                evaluation_question,
+                document,
+            )
+            and document.get("step", "").lower()
+            == "arrive and complete the final safety check"
+        ):
+            arrival_matches.append((score, document))
+            continue
+
+        # Preserve other explicitly recognized terminology matches.
+        if _has_explicit_concept_match(
+            evaluation_question,
+            document,
+        ):
+            relevant.append((score, document))
+            continue
+
         try:
             is_relevant = _ollama_judges_relevance(
                 evaluation_question,
@@ -436,6 +540,9 @@ def retrieve_steps(
         if is_relevant:
             relevant.append((score, document))
 
+    # Place the explicit arrival instruction first.
+    relevant = arrival_matches + relevant    
+
     return [
         {
             "protocol_id": document["protocol_id"],
@@ -453,32 +560,22 @@ def retrieve_steps(
 
 
 
-def answer_with_rag(question, protocol_id=None):
+def answer_with_rag(question, protocol_id=None, communication_style="neutral", requires_human=False):
     """
-    Retrieve relevant preparation steps and return their stored text.
-
-    Deliberately avoids free-form LLM generation because unsupported
-    medical details must not be added to the stored instructions.
+    Retrieve protocol-specific instructions and optionally generate a
+    plain-language explanation. Exact stored wording remains the fallback.
     """
-    escalation = safety_response(question)
+    escalation = safety_response(question, requires_human=requires_human)
     if escalation is not None:
         return escalation
 
     normalized = " ".join(question.lower().strip().split())
 
     general_help_phrases = {
-        "hi",
-        "hello",
-        "hey",
-        "hi prepbuddy",
-        "hello prepbuddy",
-        "hey prepbuddy",
-        "what can you help me with",
-        "what can you help me with?",
-        "what can you do",
-        "what do you do",
-        "help",
-        "help me",
+        "hi", "hello", "hey", "hi prepbuddy", "hello prepbuddy",
+        "hey prepbuddy", "what can you help me with",
+        "what can you help me with?", "what can you do",
+        "what do you do", "help", "help me",
     }
 
     if (
@@ -502,10 +599,7 @@ def answer_with_rag(question, protocol_id=None):
         }
 
     try:
-        sources = retrieve_steps(
-            question,
-            protocol_id=protocol_id,
-        )
+        sources = retrieve_steps(question, protocol_id=protocol_id)
 
         if not sources:
             return {
@@ -514,21 +608,36 @@ def answer_with_rag(question, protocol_id=None):
                 "needs_clinical_team": True,
             }
 
-        # Return only the highest-ranked source. Do not let an LLM
-        # invent timings, doses, or consequences.
         source = sources[0]
-
-        answer = (
+        exact_answer = (
             f"Stored instruction - {source['step']}: "
             f"{source['instruction']}"
         )
 
+        # Generation is disabled by default until local integration and
+        # clinician review are complete. It can be enabled in settings.
+        answer = exact_answer
+        if getattr(settings, "PREPBUDDY_ENABLE_GENERATED_EXPLANATIONS", False):
+            from chatbot.response_generator import generate_patient_explanation
+
+            generated = generate_patient_explanation(
+                question=question,
+                source_text=source["instruction"],
+                communication_style=communication_style,
+            )
+            if generated:
+                answer = generated + "\n\nApproved instruction: " + source["instruction"]
+
+
+        # Sentiment changes only communication framing, never the retrieved
+        # instruction or clinical-safety decision.
+        from chatbot.response_generator import apply_communication_style
+        answer = apply_communication_style(answer, communication_style)
+
         public_source = {
             "protocol": source["protocol"],
             "step": source["step"],
-            "minutes_before_procedure": (
-                source["minutes_before_procedure"]
-            ),
+            "minutes_before_procedure": source["minutes_before_procedure"],
             "is_critical": source["is_critical"],
         }
 

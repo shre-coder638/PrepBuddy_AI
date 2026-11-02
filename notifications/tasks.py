@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 MAX_DELIVERY_ATTEMPTS = 3
 
+# A pending reminder is temporarily hidden from other workers while this
+# timestamp is in the future. If a worker crashes, it becomes eligible again
+# after the lease expires. Keep this comfortably above the OpenWA HTTP timeout.
+REMINDER_CLAIM_LEASE = timedelta(minutes=3)
+
 RETRY_DELAYS_MINUTES = {
     1: 5,
     2: 15,
@@ -48,7 +53,13 @@ def _claim_reminder(reminder_id, now):
                 models.Q(next_attempt_at__isnull=True)
                 | models.Q(next_attempt_at__lte=now)
             )
-            .update(delivery_attempts=F("delivery_attempts") + 1)
+            # Reuse the existing retry timestamp as a short claim lease. The
+            # conditional UPDATE is atomic: only one worker can move it into
+            # the future and increment the attempt counter.
+            .update(
+                delivery_attempts=F("delivery_attempts") + 1,
+                next_attempt_at=now + REMINDER_CLAIM_LEASE,
+            )
         )
 
         if updated != 1:
@@ -159,6 +170,9 @@ def _schedule_retry(reminder):
             reminder.id,
         )
     else:
+        # Return the reminder to the pending queue and replace the temporary
+        # claim lease with the normal retry delay.
+        reminder.status = "pending"
         delay_minutes = RETRY_DELAYS_MINUTES.get(
             reminder.delivery_attempts,
             15,
@@ -407,9 +421,9 @@ def check_missed_reminders():
                 procedure.status = "attention_needed"
                 procedure.save(update_fields=["status", "updated_at"])
 
-                print(
-                    f"CRITICAL PREP FAILURE: "
-                    f"Procedure #{procedure.id}"
+                logger.warning(
+                    "A critical preparation reminder was missed; procedure %s requires attention.",
+                    procedure.id,
                 )
 
     # Mark overdue pending reminders as missed once the procedure

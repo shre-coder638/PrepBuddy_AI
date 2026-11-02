@@ -81,3 +81,47 @@ class MissedReminderAlert(models.Model):
 
     def __str__(self):
         return f"Staff alert for reminder {self.reminder_id}"
+
+
+class WhatsAppMessageAnalysis(models.Model):
+    """Communication analysis for one patient-authored WhatsApp message."""
+
+    SENTIMENT_CHOICES = [
+        ("positive", "Positive"),
+        ("neutral", "Neutral"),
+        ("negative", "Negative"),
+    ]
+    EMOTION_CHOICES = [
+        ("calm", "Calm"),
+        ("anxious", "Anxious"),
+        ("confused", "Confused"),
+        ("frustrated", "Frustrated"),
+        ("distressed", "Distressed"),
+    ]
+    INTENT_CHOICES = [
+        ("instruction_question", "Instruction question"),
+        ("clarification", "Clarification"),
+        ("acknowledgement", "Acknowledgement"),
+        ("help_request", "Help request"),
+        ("clinical_concern", "Clinical concern"),
+        ("other", "Other"),
+    ]
+
+    message = models.OneToOneField(
+        WhatsAppConversationMessage,
+        on_delete=models.CASCADE,
+        related_name="analysis",
+    )
+    sentiment = models.CharField(max_length=12, choices=SENTIMENT_CHOICES)
+    emotion = models.CharField(max_length=12, choices=EMOTION_CHOICES)
+    intent = models.CharField(max_length=32, choices=INTENT_CHOICES)
+    confidence = models.FloatField(default=0.0)
+    requires_human = models.BooleanField(default=False)
+    model_version = models.CharField(max_length=40, default="rules-v1")
+    analyzed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-analyzed_at"]
+
+    def __str__(self):
+        return f"Analysis for message {self.message_id}: {self.sentiment}/{self.intent}"

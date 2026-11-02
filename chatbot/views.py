@@ -77,10 +77,15 @@ def chatbot_api(request):
         answer_with_rag(question, protocol_id=procedure.protocol_id)
     )
 
-def answer_question(question, protocol_id=None):
+def answer_question(question, protocol_id=None, communication_style="neutral", requires_human=False):
     """Return a safe, source-grounded preparation answer."""
-    escalation = safety_response(question)
+    escalation = safety_response(question, requires_human=requires_human)
     if escalation is not None:
         return escalation
 
-    return answer_with_rag(question, protocol_id=protocol_id)
+    return answer_with_rag(
+        question,
+        protocol_id=protocol_id,
+        communication_style=communication_style,
+        requires_human=requires_human,
+    )
