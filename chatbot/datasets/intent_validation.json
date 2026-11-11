@@ -1,0 +1,6 @@
+[
+  {"intent": "greeting", "text": "Hey there"},
+  {"intent": "fasting", "text": "Am I allowed to have food beforehand?"},
+  {"intent": "arrival", "text": "When do I need to be at the hospital?"},
+  {"intent": "preparation_items", "text": "Should I take off my watch?"}
+]

@@ -190,3 +190,56 @@ def test_classifier_failure_does_not_disable_text_safety_rules(
     assert "clinical team" in mock_send.call_args.args[1].lower()
     # Analysis persistence is best-effort; a failed classifier creates no row.
     assert WhatsAppMessageAnalysis.objects.count() == 0
+
+
+@pytest.mark.django_db
+@patch(
+    "notifications.views.analyze_patient_message",
+    side_effect=RuntimeError("classifier unavailable"),
+)
+@patch("notifications.views.send_openwa_message")
+@patch("notifications.views.requests.get")
+@patch("chatbot.views.answer_with_rag")
+def test_distress_is_escalated_when_classifier_fails(
+    mock_rag,
+    mock_get,
+    mock_send,
+    mock_analyze,
+    webhook_client,
+    setup_data,
+):
+    configure_registered_sender(mock_get)
+
+    assert activate_assistant(
+        webhook_client,
+        "stage2c-distress-failure-activation",
+    ).status_code == 200
+
+    response = send_patient_message(
+        webhook_client,
+        "I feel overwhelmed.",
+        "stage2c-distress-classifier-failure",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["answered"] is True
+    assert response.json()["needs_clinical_team"] is True
+
+    mock_analyze.assert_called_once()
+    mock_rag.assert_not_called()
+
+    assert "clinical team" in mock_send.call_args.args[1].lower()
+
+    session = WhatsAppAssistantSession.objects.get(
+        patient=setup_data["procedure"].patient
+    )
+
+    patient_message = WhatsAppConversationMessage.objects.get(
+        session=session,
+        role="patient",
+        content="I feel overwhelmed.",
+    )
+
+    assert not WhatsAppMessageAnalysis.objects.filter(
+        message=patient_message
+    ).exists()

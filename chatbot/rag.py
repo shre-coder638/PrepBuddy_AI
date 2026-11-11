@@ -58,6 +58,15 @@ EXCEPTION_PHRASES = (
     "is it safe for me",
 )
 
+DISTRESS_ESCALATION_PHRASES = (
+    "can't cope",
+    "cannot cope",
+    "overwhelmed",
+    "terrified",
+    "hopeless",
+    "desperate",
+)
+
 def safety_response(question, requires_human=False):
     """Return a safe response when text rules or message analysis require review."""
     if requires_human:
@@ -72,6 +81,20 @@ def safety_response(question, requires_human=False):
         }
 
     normalized = question.lower()
+
+    if any(
+        phrase in normalized
+        for phrase in DISTRESS_ESCALATION_PHRASES
+    ):
+        return {
+            "answer": (
+                "Your message may need personal guidance from your care team. "
+                "I can't safely resolve this through the stored preparation "
+                "instructions. Please contact your clinical team for support."
+            ),
+            "sources": [],
+            "needs_clinical_team": True,
+        }
 
     if any(term in normalized for term in CLINICAL_ESCALATION_TERMS):
         return {
@@ -281,11 +304,7 @@ RETRIEVAL_CONCEPTS = {
         "hospitals", "imaging", "department",
         "report", "reporting",
     },
-    "fasting": {
-        "fast", "fasting", "food", "eat", "eating",
-        "drink", "drinking", "water", "liquid",
-        "meal", "meals", "snack", "snacks",
-    }    
+    "fasting": {"fast"},
 }
 
 

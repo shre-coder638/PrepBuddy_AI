@@ -1,0 +1,6 @@
+[
+  {"intent": "greeting", "text": "Hello"},
+  {"intent": "fasting", "text": "Can I drink before the appointment?"},
+  {"intent": "arrival", "text": "What is the arrival time?"},
+  {"intent": "preparation_items", "text": "Can I keep my hearing aids on?"}
+]

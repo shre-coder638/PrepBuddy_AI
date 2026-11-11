@@ -1,0 +1,12 @@
+[
+  {"intent": "greeting", "text": "Hello PrepBuddy"},
+  {"intent": "greeting", "text": "Hi, what can you help me with?"},
+  {"intent": "fasting", "text": "Can I eat before my procedure?"},
+  {"intent": "fasting", "text": "When should I stop eating?"},
+  {"intent": "arrival", "text": "What time should I arrive?"},
+  {"intent": "arrival", "text": "Where do I report for my scan?"},
+  {"intent": "preparation_items", "text": "What should I remove before the scan?"},
+  {"intent": "preparation_items", "text": "Do I need to remove jewellery?"},
+  {"intent": "general_help", "text": "What do you do?"},
+  {"intent": "general_help", "text": "Please explain how you can help"}
+]
