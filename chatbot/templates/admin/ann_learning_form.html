@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<p>
+    Experimental learning only. Approval here does not
+    authorize a model for patient-facing deployment.
+</p>
+
+{% if experience %}
+    <h2>Experience details</h2>
+    <p>Experience: {{ experience.id }}</p>
+    <p>Protocol ID: {{ experience.protocol_id }}</p>
+    <p>Outcome: {{ experience.outcome }}</p>
+    <p>Retrieved steps: {{ experience.retrieved_step_ids }}</p>
+    <p>Returned steps: {{ experience.returned_step_ids }}</p>
+{% endif %}
+
+{% if example %}
+    <h2>Question</h2>
+    <p>{{ example.question|linebreaksbr }}</p>
+
+    <h2>Stored instruction</h2>
+    <p>{{ example.instruction_snapshot|linebreaksbr }}</p>
+
+    <p>Protocol ID: {{ example.protocol_id }}</p>
+    <p>Step ID: {{ example.step_id }}</p>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <div class="submit-row">
+        <input type="submit" value="Save decision" class="default">
+    </div>
+</form>
+
+{% endblock %}

@@ -20,6 +20,11 @@ def webhook_client():
     return Client()
 
 
+@pytest.fixture(autouse=True)
+def webhook_secret(settings):
+    settings.OPENWA_WEBHOOK_SECRET = "test-openwa-webhook-secret"
+
+
 def configure_registered_sender(mock_get):
     mock_get.return_value = Mock(
         status_code=200,
@@ -249,4 +254,4 @@ def test_analysis_persistence_failure_keeps_text_based_clinical_safety(
         assert response.json()["needs_clinical_team"] is True
         mock_rag.assert_not_called()
         mock_send.assert_called_once()
-        assert "clinical team" in mock_send.call_args.args[1].lower()
+        assert "clinical team" in mock_send.call_args.kwargs["text"].lower()

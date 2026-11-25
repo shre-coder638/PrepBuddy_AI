@@ -1,0 +1,530 @@
+[
+  {
+    "id": "DEVEN001",
+    "language": "en",
+    "question": "I take several prescribed medicines. What should I discuss with the team before my colonoscopy?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN002",
+    "language": "en",
+    "question": "Before my colonoscopy, who should review my regular medication list, and what details should I provide?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN003",
+    "language": "en",
+    "question": "I realised I followed the wrong drinking schedule before my colonoscopy. Who should I contact?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN004",
+    "language": "en",
+    "question": "For my colonoscopy, where can I confirm the exact time to stop solids and liquids?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN005",
+    "language": "en",
+    "question": "My CT appointment is approaching. Should I choose clothes without metal fasteners?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN006",
+    "language": "en",
+    "question": "I cannot safely take off a piece of jewellery before my CT scan. What should I do?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN007",
+    "language": "en",
+    "question": "I have a CT scan booked. Do all types of CT require patients to avoid food?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN008",
+    "language": "en",
+    "question": "My radiology instructions mention fasting for a CT, but I take diabetes medication. Who should advise me?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN009",
+    "language": "en",
+    "question": "I am having an ECG and have a cardiac pacemaker. Should I mention it before the test?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN010",
+    "language": "en",
+    "question": "What information about an implanted heart device should I give the staff before my ECG?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN011",
+    "language": "en",
+    "question": "I applied skin cream before my ECG. Could it affect where the electrodes are attached?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN012",
+    "language": "en",
+    "question": "Is there anything I should avoid putting on my chest before an ECG because of the electrode pads?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN013",
+    "language": "en",
+    "question": "I may be expecting a baby. Should I tell the X-ray department even without a confirmed pregnancy?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN014",
+    "language": "en",
+    "question": "Before my X-ray, should I disclose a possibility of pregnancy if I am still waiting for confirmation?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN015",
+    "language": "en",
+    "question": "Which removable personal items might the radiographer ask me to take off for an X-ray?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN016",
+    "language": "en",
+    "question": "I use a removable hearing accessory with metal parts. Should I ask the X-ray staff before removing it?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN017",
+    "language": "en",
+    "question": "I have a cochlear implant. What should the MRI safety team check before I enter the scanner area?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN018",
+    "language": "en",
+    "question": "I cannot find the details of an old implant. What information should I bring up before my MRI?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN019",
+    "language": "en",
+    "question": "For my MRI, should I tell the staff about my smartwatch and other electronic belongings?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN020",
+    "language": "en",
+    "question": "My MRI clothing has metal components. Should I check with the MRI staff about changing clothes?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI001",
+    "language": "hi",
+    "question": "मेरी कोलोनोस्कोपी होने वाली है। मैं कई नियमित दवाइयाँ लेता हूँ। इनके बारे में डॉक्टर या टीम को क्या बताना चाहिए?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI002",
+    "language": "hi",
+    "question": "कोलोनोस्कोपी से पहले मेरी दवाओं की सूची किससे जाँच करवानी चाहिए? क्या कोई दवा खुद बंद करनी चाहिए?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI003",
+    "language": "hi",
+    "question": "कोलोनोस्कोपी से पहले गलती से तय समय के बाद कुछ खा लिया। अब मुझे किससे संपर्क करना चाहिए?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI004",
+    "language": "hi",
+    "question": "मेरी कोलोनोस्कोपी के लिए ठोस खाना और तरल पदार्थ कब बंद करने हैं, इसका सही समय कहाँ से पता चलेगा?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI005",
+    "language": "hi",
+    "question": "CT स्कैन के दिन क्या धातु वाली ज़िप या बटन के बिना कपड़े पहनना बेहतर होगा?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI006",
+    "language": "hi",
+    "question": "CT स्कैन से पहले मेरी कोई धातु की चीज़ नहीं निकल रही है। क्या मुझे स्टाफ से मदद माँगनी चाहिए?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI007",
+    "language": "hi",
+    "question": "क्या हर CT स्कैन में खाने से पहले उपवास करना ज़रूरी होता है, या निर्देश अलग हो सकते हैं?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI008",
+    "language": "hi",
+    "question": "CT स्कैन से पहले उपवास का निर्देश मिला है और मुझे डायबिटीज़ भी है। दवाओं के बारे में किससे पूछूँ?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI009",
+    "language": "hi",
+    "question": "ECG कराने से पहले क्या मुझे स्टाफ को अपने पेसमेकर के बारे में बताना चाहिए?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI010",
+    "language": "hi",
+    "question": "मेरे शरीर में दिल से जुड़ा एक इम्प्लांटेड उपकरण है। ECG टीम को इसकी जानकारी देना क्यों ज़रूरी है?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI011",
+    "language": "hi",
+    "question": "ECG से पहले मैंने छाती पर तेल लगाया है। क्या इलेक्ट्रोड लगाने से पहले यह बात स्टाफ को बतानी चाहिए?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI012",
+    "language": "hi",
+    "question": "ECG के लिए त्वचा तैयार करने के नाम पर क्या मुझे घर पर ही छाती के बाल शेव करने चाहिए?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI013",
+    "language": "hi",
+    "question": "X-ray से पहले अगर गर्भवती होने की थोड़ी भी संभावना हो तो क्या रेडियोग्राफर को बताना चाहिए?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI014",
+    "language": "hi",
+    "question": "मुझे अभी गर्भावस्था की पुष्टि नहीं हुई है। क्या X-ray विभाग को अपनी आशंका बताना ज़रूरी है?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI015",
+    "language": "hi",
+    "question": "X-ray के समय शरीर पर पहनी किन चीज़ों को हटाने के लिए कहा जा सकता है?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI016",
+    "language": "hi",
+    "question": "मेरे पास धातु वाला एक हटाया जा सकने वाला उपकरण है। X-ray से पहले इसे लेकर किससे सलाह लूँ?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI017",
+    "language": "hi",
+    "question": "मेरे कान में कोक्लियर इम्प्लांट है। MRI से पहले इसकी सुरक्षा की जाँच कौन करेगा?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI018",
+    "language": "hi",
+    "question": "मेरे पुराने ऑपरेशन में धातु का इम्प्लांट लगाया गया था। MRI से पहले टीम को क्या जानकारी देनी चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI019",
+    "language": "hi",
+    "question": "MRI के दौरान क्या मोबाइल और स्मार्टवॉच जैसी इलेक्ट्रॉनिक चीज़ें अपने पास रख सकते हैं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHI020",
+    "language": "hi",
+    "question": "मेरे कपड़ों में धातु के हिस्से हैं। MRI के लिए कपड़े बदलने से पहले किससे निर्देश लेने चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG001",
+    "language": "hinglish",
+    "question": "Meri colonoscopy scheduled hai aur main daily medicines leta hoon. Kya medicine list team ko dikhani chahiye?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG002",
+    "language": "hinglish",
+    "question": "Colonoscopy se pehle meri regular tablets ke baare mein kisse baat karni chahiye? Kya khud se koi medicine stop kar sakta hoon?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG003",
+    "language": "hinglish",
+    "question": "Colonoscopy ke din galti se allowed time ke baad kuch kha liya. Ab kisko inform karna chahiye?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG004",
+    "language": "hinglish",
+    "question": "Meri colonoscopy ke liye food aur liquids ka exact cutoff time kaise confirm karun?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG005",
+    "language": "hinglish",
+    "question": "CT scan ke liye kya metal zip aur buttons wale clothes avoid karne chahiye?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG006",
+    "language": "hinglish",
+    "question": "CT scan se pehle meri jewellery remove nahi ho rahi. Kya radiology staff se help leni chahiye?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG007",
+    "language": "hinglish",
+    "question": "Kya CT scan ke har type mein fasting required hoti hai, ya instructions scan ke hisaab se hoti hain?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG008",
+    "language": "hinglish",
+    "question": "CT ke liye fasting ka mention hai aur mujhe diabetes hai. Medicine aur insulin ke baare mein kisse confirm karun?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG009",
+    "language": "hinglish",
+    "question": "Mera ECG hone wala hai aur mere paas pacemaker hai. Kya test se pehle staff ko batana hoga?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG010",
+    "language": "hinglish",
+    "question": "ECG appointment par implanted cardiac device ki details ya card lekar jaana useful hoga kya?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG011",
+    "language": "hinglish",
+    "question": "ECG se pehle maine body lotion use kiya hai. Kya electrodes lagane mein issue ho sakta hai?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG012",
+    "language": "hinglish",
+    "question": "ECG stickers properly attach hon, isliye kya mujhe ghar par skin scrub ya shave karni chahiye?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG013",
+    "language": "hinglish",
+    "question": "Pregnancy confirm nahi hai, bas possibility hai. X-ray se pehle radiographer ko inform karna chahiye?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG014",
+    "language": "hinglish",
+    "question": "Agar pregnancy ka doubt ho lekin test nahi kiya hai, toh X-ray team ko batana zaroori hai kya?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG015",
+    "language": "hinglish",
+    "question": "X-ray ke time kaun-kaun se removable accessories remove karne ko keh sakte hain?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG016",
+    "language": "hinglish",
+    "question": "Mera ek medical support device metal wala hai. X-ray se pehle use remove karne ke liye staff se poochun?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG017",
+    "language": "hinglish",
+    "question": "Mere paas cochlear implant hai. MRI se pehle device ki compatibility kaun verify karega?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG018",
+    "language": "hinglish",
+    "question": "Meri previous surgery mein implant laga tha, lekin details yaad nahi. MRI team ko kya batana chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG019",
+    "language": "hinglish",
+    "question": "MRI scanner area mein enter karte waqt phone, smartwatch aur electronic items ke baare mein kya karna hoga?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVHG020",
+    "language": "hinglish",
+    "question": "Mere MRI clothes mein metallic parts hain aur main wearable patch bhi use karta hoon. Staff ko kya batana chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "DEVEN021",
+    "language": "en",
+    "question": "I was given some preparation instructions, but I cannot remember which test they were for. Can you tell me what to do?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "DEVEN022",
+    "language": "en",
+    "question": "Should I remove it before going in, or is it safe to leave it on?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "DEVHI021",
+    "language": "hi",
+    "question": "मुझे तैयारी के निर्देश याद नहीं हैं और मुझे यह भी याद नहीं है कि कौन-सी जाँच होने वाली है। मुझे क्या करना चाहिए?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "DEVHI022",
+    "language": "hi",
+    "question": "क्या मुझे अंदर जाने से पहले इसे हटा देना चाहिए, या इसे लगा रहने देना सुरक्षित है?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "DEVHG021",
+    "language": "hinglish",
+    "question": "Mujhe preparation instructions mile the, but yaad nahi kis test ke liye the. Ab kya follow karun?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "DEVHG022",
+    "language": "hinglish",
+    "question": "Kya isko appointment se pehle remove karna hai, ya aise hi rehne de sakta hoon?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  }
+]

@@ -7,4 +7,9 @@ urlpatterns = [
         views.openwa_webhook,
         name="openwa-webhook"
     ),
+    path(
+        "openwa/relay/send-text/",
+        views.openwa_relay_send_text,
+        name="openwa-relay-send-text",
+    ),
 ]

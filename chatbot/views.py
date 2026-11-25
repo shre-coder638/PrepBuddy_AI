@@ -1,5 +1,6 @@
 
 import json
+from django.conf import settings
 from accounts.permissions import get_authorized_staff_profile
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -69,6 +70,14 @@ def chatbot_api(request):
     if procedure is None:
         return JsonResponse({"error": "Procedure not found"}, status=404)
 
+    if getattr(settings, "CHATBOT_BACKEND", "rag") != "rag":
+        return JsonResponse(
+            answer_question(
+                question,
+                protocol_id=procedure.protocol_id,
+            )
+        )
+
     escalation = safety_response(question)
     if escalation is not None:
         return JsonResponse(escalation)
@@ -79,6 +88,18 @@ def chatbot_api(request):
 
 def answer_question(question, protocol_id=None, communication_style="neutral", requires_human=False):
     """Return a safe, source-grounded preparation answer."""
+
+    if getattr(settings, "CHATBOT_BACKEND", "rag") != "rag":
+
+        from .ann.backend import answer_configured_ann
+
+        return answer_configured_ann(
+            question,
+            protocol_id=protocol_id,
+            communication_style=communication_style,
+            requires_human=requires_human,
+        )
+
     escalation = safety_response(question, requires_human=requires_human)
     if escalation is not None:
         return escalation

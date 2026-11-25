@@ -1,0 +1,542 @@
+[
+  {
+    "id": "THENEN001",
+    "language": "en",
+    "question": "When will I receive the MRI report after the radiologist reviews it?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN002",
+    "language": "en",
+    "question": "How long will the scan findings take to become available?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN003",
+    "language": "en",
+    "question": "Who can tell me when my MRI results will be ready?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN004",
+    "language": "en",
+    "question": "How can I get my MRI findings once the review is finished?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN005",
+    "language": "en",
+    "question": "What should I expect while the MRI is running?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN006",
+    "language": "en",
+    "question": "If I need assistance inside the scanner, what should I do?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN007",
+    "language": "en",
+    "question": "Will someone be able to hear me during the MRI?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN008",
+    "language": "en",
+    "question": "What happens during scanning if I need a short break?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN009",
+    "language": "en",
+    "question": "After my scan, can I return to work straight away?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN010",
+    "language": "en",
+    "question": "Can I drive home after the MRI?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN011",
+    "language": "en",
+    "question": "The MRI is over; may I leave the department now?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN012",
+    "language": "en",
+    "question": "I completed my scan. Can I go home now?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN013",
+    "language": "en",
+    "question": "What documents should I bring to the imaging department?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN014",
+    "language": "en",
+    "question": "Can I listen to music before my appointment?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN015",
+    "language": "en",
+    "question": "The radiologist will review my images. What does that review involve?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN016",
+    "language": "en",
+    "question": "I forgot the name of the hospital building. Where is the imaging unit?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN017",
+    "language": "en",
+    "question": "Is the MRI room usually cold?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN018",
+    "language": "en",
+    "question": "My appointment confirmation has the wrong spelling. How can it be corrected?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN019",
+    "language": "en",
+    "question": "I feel nervous about the machine, even when I am not having a scan.",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENEN020",
+    "language": "en",
+    "question": "What does the MRI machine look like?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI001",
+    "language": "hi",
+    "question": "एमआरआई की रिपोर्ट मुझे कब मिलेगी?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI002",
+    "language": "hi",
+    "question": "रिजल्ट कब आएगा, यह किस विभाग से पता चलेगा?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI003",
+    "language": "hi",
+    "question": "कब तक जांच की रिपोर्ट उपलब्ध हो जाएगी?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI004",
+    "language": "hi",
+    "question": "मेरी MRI report kitne din mein ready hogi?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI005",
+    "language": "hi",
+    "question": "एमआरआई के दौरान मशीन के अंदर क्या प्रक्रिया होती है?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI006",
+    "language": "hi",
+    "question": "स्कैन के समय अगर मुझे परेशानी हो तो मैं क्या करूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI007",
+    "language": "hi",
+    "question": "जांच के दौरान क्या कर्मचारी मुझसे बात कर सकते हैं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI008",
+    "language": "hi",
+    "question": "दौरान एमआरआई अगर मुझे रुकना हो तो मदद कैसे मांगूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI009",
+    "language": "hi",
+    "question": "एमआरआई के बाद क्या मैं खुद गाड़ी चलाकर घर जा सकता हूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI010",
+    "language": "hi",
+    "question": "स्कैन होने के बाद क्या मुझे विभाग से छुट्टी लेने की जरूरत है?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI011",
+    "language": "hi",
+    "question": "स्कैन पूरा हो गया है, क्या अब मैं घर जा सकता हूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI012",
+    "language": "hi",
+    "question": "एमआरआई के बाद सामान्य काम कब शुरू कर सकता हूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI013",
+    "language": "hi",
+    "question": "अस्पताल में पंजीकरण के लिए कौन सा पहचान पत्र चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI014",
+    "language": "hi",
+    "question": "एमआरआई मशीन में कितनी जगह होती है?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI015",
+    "language": "hi",
+    "question": "डॉक्टर ने मेरी पुरानी जांच की रिपोर्ट भी मांगी है।",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI016",
+    "language": "hi",
+    "question": "अस्पताल की पार्किंग किस तरफ है?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI017",
+    "language": "hi",
+    "question": "मुझे अस्पताल पहुंचने का रास्ता समझा दीजिए।",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI018",
+    "language": "hi",
+    "question": "क्या जांच के कमरे में रोशनी रहती है?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI019",
+    "language": "hi",
+    "question": "मुझे बंद जगहों से डर लगता है।",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHI020",
+    "language": "hi",
+    "question": "मेरी अपॉइंटमेंट की पर्ची खो गई है।",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG001",
+    "language": "hinglish",
+    "question": "MRI report mujhe kab milegi?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG002",
+    "language": "hinglish",
+    "question": "Scan findings kab available hongi?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG003",
+    "language": "hinglish",
+    "question": "Who can tell me ki MRI results kab ready honge?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG004",
+    "language": "hinglish",
+    "question": "MRI report kitne din mein ready hogi?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG005",
+    "language": "hinglish",
+    "question": "MRI ke dauran machine ke andar kya hota hai?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG006",
+    "language": "hinglish",
+    "question": "Scan ke time agar mujhe help chahiye toh main kya karun?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG007",
+    "language": "hinglish",
+    "question": "Scanner ke andar staff meri awaaz sun paayega?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG008",
+    "language": "hinglish",
+    "question": "During MRI agar mujhe break lena ho toh kaise bataun?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG009",
+    "language": "hinglish",
+    "question": "Scan ke baad kya main office ja sakta hoon?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG010",
+    "language": "hinglish",
+    "question": "Can I drive home after my MRI?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG011",
+    "language": "hinglish",
+    "question": "MRI complete ho gaya hai, kya main department se leave kar sakta hoon?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG012",
+    "language": "hinglish",
+    "question": "Scan khatam hone ke baad ghar ja sakta hoon?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG013",
+    "language": "hinglish",
+    "question": "MRI appointment ke liye kaun se documents carry karne hain?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG014",
+    "language": "hinglish",
+    "question": "Hospital mein registration counter kahan hai?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG015",
+    "language": "hinglish",
+    "question": "Radiologist images ko kaise examine karta hai?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG016",
+    "language": "hinglish",
+    "question": "Mujhe appointment ka confirmation message nahi mila.",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG017",
+    "language": "hinglish",
+    "question": "MRI machine ki sound itni loud kyun hoti hai?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG018",
+    "language": "hinglish",
+    "question": "Hospital mein parking available hai kya?",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG019",
+    "language": "hinglish",
+    "question": "Mujhe enclosed spaces mein anxiety hoti hai.",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  },
+  {
+    "id": "THENHG020",
+    "language": "hinglish",
+    "question": "Meri MRI appointment ki date change karni hai.",
+    "expected_protocol_id": 14,
+    "expected_step_id": null,
+    "expected_phase": "unspecified",
+    "expected_action": "detect_temporal_intent"
+  }
+]

@@ -20,6 +20,11 @@ def webhook_client():
     return Client()
 
 
+@pytest.fixture(autouse=True)
+def webhook_secret(settings):
+    settings.OPENWA_WEBHOOK_SECRET = "test-openwa-webhook-secret"
+
+
 def configure_registered_sender(mock_get):
     mock_get.return_value = Mock(
         status_code=200,
@@ -82,7 +87,7 @@ def test_clinical_concern_is_persisted_and_never_reaches_rag(
     assert analysis.sentiment == "negative"
     assert analysis.intent == "clinical_concern"
     assert analysis.requires_human is True
-    assert "clinical team" in mock_send.call_args.args[1].lower()
+    assert "clinical team" in mock_send.call_args.kwargs["text"].lower()
 
 
 @pytest.mark.django_db
@@ -113,7 +118,7 @@ def test_distressed_message_is_escalated_even_without_clinical_keyword(
 
     assert analysis.emotion == "distressed"
     assert analysis.requires_human is True
-    assert "clinical team" in mock_send.call_args.args[1].lower()
+    assert "clinical team" in mock_send.call_args.kwargs["text"].lower()
 
 
 @pytest.mark.django_db
@@ -140,7 +145,7 @@ def test_ordinary_preparation_question_continues_to_rag(
     mock_rag.assert_called_once()
     assert mock_rag.call_args.kwargs["communication_style"] == "neutral"
     assert mock_rag.call_args.kwargs["requires_human"] is False
-    assert "Follow your stored preparation instructions." in mock_send.call_args.args[1]
+    assert "Follow your stored preparation instructions." in mock_send.call_args.kwargs["text"]
 
 
 @pytest.mark.django_db
@@ -187,7 +192,7 @@ def test_classifier_failure_does_not_disable_text_safety_rules(
     assert response.json()["needs_clinical_team"] is True
     mock_analyze.assert_called_once()
     mock_rag.assert_not_called()
-    assert "clinical team" in mock_send.call_args.args[1].lower()
+    assert "clinical team" in mock_send.call_args.kwargs["text"].lower()
     # Analysis persistence is best-effort; a failed classifier creates no row.
     assert WhatsAppMessageAnalysis.objects.count() == 0
 
@@ -228,7 +233,7 @@ def test_distress_is_escalated_when_classifier_fails(
     mock_analyze.assert_called_once()
     mock_rag.assert_not_called()
 
-    assert "clinical team" in mock_send.call_args.args[1].lower()
+    assert "clinical team" in mock_send.call_args.kwargs["text"].lower()
 
     session = WhatsAppAssistantSession.objects.get(
         patient=setup_data["procedure"].patient

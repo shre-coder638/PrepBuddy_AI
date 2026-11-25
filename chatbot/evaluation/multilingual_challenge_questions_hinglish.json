@@ -1,0 +1,162 @@
+[
+  {
+    "id": "CHHG001",
+    "language": "hinglish",
+    "question": "Meri colonoscopy hone wali hai. Kya mujhe apni regular medicines band kar deni chahiye?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG003",
+    "language": "hinglish",
+    "question": "Colonoscopy ke fasting cutoff ke baad galti se paani pee liya. Kya mujhe hospital walon ko inform karna chahiye?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG004",
+    "language": "hinglish",
+    "question": "Mujhe yaad nahi ki colonoscopy se pehle food aur water kab stop karna hai. Kya aap general timing bata sakte ho?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG005",
+    "language": "hinglish",
+    "question": "CT scan ke liye metal wale kapde aur jewellery pehen kar jaana okay hai ya unhe remove karna padega?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG006",
+    "language": "hinglish",
+    "question": "Meri ring CT scan se pehle nikal nahi rahi. Kya force laga kar remove karun?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG007",
+    "language": "hinglish",
+    "question": "Kya har CT scan ke liye fasting compulsory hoti hai, ya scan ke type ke according rules change hote hain?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG008",
+    "language": "hinglish",
+    "question": "Mujhe diabetes hai aur CT ke liye fasting bol sakte hain. Kya main apni insulin dose khud adjust kar loon?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG009",
+    "language": "hinglish",
+    "question": "Mere paas pacemaker hai. ECG karne se pehle staff ko iske baare mein batana zaroori hai kya?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG011",
+    "language": "hinglish",
+    "question": "Main daily body lotion use karta hoon. Kya ECG ke electrodes properly stick hone mein problem aa sakti hai?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG012",
+    "language": "hinglish",
+    "question": "ECG stickers achhe se chipkein, isliye kya mujhe appointment se pehle skin shave ya scrub karni chahiye?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG013",
+    "language": "hinglish",
+    "question": "Pregnancy confirm nahi hui hai, bas doubt hai. X-ray se pehle radiographer ko batana chahiye kya?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG014",
+    "language": "hinglish",
+    "question": "Agar mujhe lagta hai ki main pregnant ho sakti hoon, lekin sure nahi hoon, toh X-ray team ko inform karna zaroori hai?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG015",
+    "language": "hinglish",
+    "question": "X-ray ke waqt glasses, hair clips ya removable dental plates bhi nikalne ko bol sakte hain kya?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG016",
+    "language": "hinglish",
+    "question": "Mere paas metal wala medical aid hai. X-ray se pehle kya main use khud remove kar doon?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG017",
+    "language": "hinglish",
+    "question": "Mere body mein implanted electronic device hai, lekin exact model nahi pata. Kya MRI room mein enter kar sakta hoon?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG018",
+    "language": "hinglish",
+    "question": "Meri old surgery mein implant laga tha. MRI se pehle implant card ya device details team ko dikhani chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG019",
+    "language": "hinglish",
+    "question": "MRI scanner room mein phone, watch aur hearing aid le jaana allowed hai kya?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG020",
+    "language": "hinglish",
+    "question": "Mere clothes mein metallic fibres hain aur main medical patch bhi wear karta hoon. MRI se pehle kya karna hoga?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHG021",
+    "language": "hinglish",
+    "question": "Woh wala karna safe rahega kya?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "CHHG022",
+    "language": "hinglish",
+    "question": "Mere case mein kaunsa option better hai?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  }
+]

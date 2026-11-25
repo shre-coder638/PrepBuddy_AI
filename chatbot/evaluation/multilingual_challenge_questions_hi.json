@@ -1,0 +1,162 @@
+[
+  {
+    "id": "CHHI001",
+    "language": "hi",
+    "question": "मेरी कोलोनोस्कोपी होने वाली है। क्या मुझे अपनी रोज़ की दवाइयाँ बंद कर देनी चाहिए?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI003",
+    "language": "hi",
+    "question": "कोलोनोस्कोपी से पहले खाना-पीना बंद करने का जो समय बताया गया था, उसके बाद गलती से पानी पी लिया। क्या अस्पताल को बताना ज़रूरी है?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI004",
+    "language": "hi",
+    "question": "मुझे याद नहीं कि कोलोनोस्कोपी से कितने घंटे पहले खाना और पानी बंद करना है। क्या कोई सामान्य समय बता सकते हैं?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI005",
+    "language": "hi",
+    "question": "CT स्कैन के लिए ऐसे कपड़े पहनने चाहिए जिनमें धातु न हो? गहनों का क्या करना होगा?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI006",
+    "language": "hi",
+    "question": "CT स्कैन से पहले मेरी अंगूठी उंगली से नहीं निकल रही है। क्या ज़ोर लगाकर निकालनी चाहिए?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI007",
+    "language": "hi",
+    "question": "क्या हर CT स्कैन से पहले खाली पेट रहना पड़ता है, या यह स्कैन के प्रकार पर निर्भर करता है?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI008",
+    "language": "hi",
+    "question": "मुझे डायबिटीज़ है और CT स्कैन से पहले शायद उपवास करना पड़े। क्या मैं अपनी इंसुलिन की खुराक खुद कम कर सकता हूँ?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI009",
+    "language": "hi",
+    "question": "मेरे सीने में पेसमेकर लगा है। क्या ECG करने वाले कर्मचारियों को इसके बारे में पहले से बताना होगा?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI011",
+    "language": "hi",
+    "question": "मैं रोज़ नहाने के बाद बॉडी लोशन लगाता हूँ। क्या ECG के चिपकने वाले इलेक्ट्रोड पर इसका असर पड़ सकता है?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI012",
+    "language": "hi",
+    "question": "ECG के इलेक्ट्रोड ठीक से चिपकें, इसके लिए क्या मुझे खुद त्वचा को रगड़कर साफ़ करना या शेव करना चाहिए?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI013",
+    "language": "hi",
+    "question": "मुझे शक है कि मैं गर्भवती हो सकती हूँ, लेकिन अभी पक्का नहीं है। क्या X-ray से पहले रेडियोग्राफर को बताना चाहिए?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI014",
+    "language": "hi",
+    "question": "अगर गर्भावस्था की पुष्टि नहीं हुई है, तब भी क्या X-ray कराने से पहले इसकी जानकारी देना ज़रूरी है?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI015",
+    "language": "hi",
+    "question": "X-ray के समय क्या चश्मा, हेयर क्लिप या नकली दाँत जैसी चीज़ें भी निकालने को कहा जा सकता है?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI016",
+    "language": "hi",
+    "question": "मेरे पास एक मेडिकल उपकरण है जिसमें धातु लगी है। क्या X-ray से पहले उसे खुद निकाल देना चाहिए?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI017",
+    "language": "hi",
+    "question": "मेरे शरीर में एक इलेक्ट्रॉनिक डिवाइस लगा है और मुझे उसका मॉडल भी नहीं पता। क्या बिना जाँच के MRI मशीन के अंदर जा सकता हूँ?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI018",
+    "language": "hi",
+    "question": "मेरी पुरानी सर्जरी में एक इम्प्लांट लगाया गया था। MRI से पहले टीम को कौन-सी जानकारी देनी चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI019",
+    "language": "hi",
+    "question": "MRI स्कैन के कमरे में जाते समय क्या मोबाइल, घड़ी और सुनने वाली मशीन अपने साथ रख सकते हैं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI020",
+    "language": "hi",
+    "question": "मेरे कपड़ों में धातु के रेशे हैं और मैं एक मेडिकल पैच भी लगाता हूँ। MRI से पहले क्या करना चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHHI021",
+    "language": "hi",
+    "question": "क्या यह मेरे लिए ठीक रहेगा?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "CHHI022",
+    "language": "hi",
+    "question": "मुझे वही करना चाहिए या कुछ और?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  }
+]

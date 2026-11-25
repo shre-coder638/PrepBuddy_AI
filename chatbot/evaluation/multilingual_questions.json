@@ -1,0 +1,212 @@
+﻿[
+  {
+    "id": "EN001",
+    "language": "en",
+    "question": "Which medicines should I tell the endoscopy team about before my colonoscopy?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39
+  },
+  {
+    "id": "EN002",
+    "language": "en",
+    "question": "How do I find out when to stop eating and drinking before my colonoscopy?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45
+  },
+  {
+    "id": "EN003",
+    "language": "en",
+    "question": "What should I tell the CT team about jewellery, watches and metal objects?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57
+  },
+  {
+    "id": "EN004",
+    "language": "en",
+    "question": "Does every CT scan require fasting, and where can I check my food and drink restrictions?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55
+  },
+  {
+    "id": "EN005",
+    "language": "en",
+    "question": "Should I tell the ECG staff that I have a pacemaker?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20
+  },
+  {
+    "id": "EN006",
+    "language": "en",
+    "question": "Can applying body lotion before an ECG affect the electrode contact?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22
+  },
+  {
+    "id": "EN007",
+    "language": "en",
+    "question": "What should I do if I might be pregnant before having an X-ray?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63
+  },
+  {
+    "id": "EN008",
+    "language": "en",
+    "question": "Which metal objects might the radiographer ask me to remove for an X-ray?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67
+  },
+  {
+    "id": "EN009",
+    "language": "en",
+    "question": "I have an implanted electronic device. What must happen before I enter the MRI scanner room?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75
+  },
+  {
+    "id": "EN010",
+    "language": "en",
+    "question": "What personal belongings and electronic items should I discuss with MRI staff before the scan?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79
+  },
+  {
+    "id": "HI001",
+    "language": "hi",
+    "question": "कोलोनोस्कोपी से पहले मुझे अपनी कौन-कौन सी दवाओं के बारे में डॉक्टरों को बताना चाहिए?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39
+  },
+  {
+    "id": "HI002",
+    "language": "hi",
+    "question": "कोलोनोस्कोपी के दिन खाना और पानी कब बंद करना है, इसकी सही जानकारी कहाँ से मिलेगी?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45
+  },
+  {
+    "id": "HI003",
+    "language": "hi",
+    "question": "CT स्कैन से पहले गहने, घड़ी और धातु की चीजों के बारे में क्या सावधानी रखनी चाहिए?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57
+  },
+  {
+    "id": "HI004",
+    "language": "hi",
+    "question": "क्या हर CT स्कैन से पहले खाली पेट रहना जरूरी है? खाने-पीने के निर्देश कहाँ देखूँ?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55
+  },
+  {
+    "id": "HI005",
+    "language": "hi",
+    "question": "मेरे शरीर में पेसमेकर लगा है। ECG से पहले मुझे स्वास्थ्यकर्मियों को क्या बताना चाहिए?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20
+  },
+  {
+    "id": "HI006",
+    "language": "hi",
+    "question": "ECG कराने से पहले त्वचा पर लोशन या तेल लगाने से क्या इलेक्ट्रोड लगाने में परेशानी हो सकती है?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22
+  },
+  {
+    "id": "HI007",
+    "language": "hi",
+    "question": "अगर मुझे लगता है कि मैं गर्भवती हो सकती हूँ, तो X-ray से पहले किसे बताना चाहिए?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63
+  },
+  {
+    "id": "HI008",
+    "language": "hi",
+    "question": "X-ray के समय रेडियोग्राफर मुझे कौन-कौन सी धातु की चीजें उतारने के लिए कह सकता है?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67
+  },
+  {
+    "id": "HI009",
+    "language": "hi",
+    "question": "मेरे शरीर में इम्प्लांट या इलेक्ट्रॉनिक डिवाइस है। MRI मशीन में जाने से पहले टीम को क्या जाँच करनी होगी?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75
+  },
+  {
+    "id": "HI010",
+    "language": "hi",
+    "question": "MRI कराने से पहले मुझे अपने गहने, मोबाइल और दूसरी निजी चीजों के बारे में क्या करना चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79
+  },
+  {
+    "id": "HG001",
+    "language": "hinglish",
+    "question": "Colonoscopy se pehle kaunsi medicines aur supplements ki list endoscopy team ko deni chahiye?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39
+  },
+  {
+    "id": "HG002",
+    "language": "hinglish",
+    "question": "Colonoscopy wale din food aur water kab stop karna hai, exact instructions kahan milenge?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45
+  },
+  {
+    "id": "HG003",
+    "language": "hinglish",
+    "question": "CT scan ke time jewellery, watch ya metal accessories remove karni pad sakti hain kya?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57
+  },
+  {
+    "id": "HG004",
+    "language": "hinglish",
+    "question": "Kya har CT scan se pehle fasting zaroori hoti hai? Food aur drink ke rules kaise check karun?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55
+  },
+  {
+    "id": "HG005",
+    "language": "hinglish",
+    "question": "Mere paas pacemaker hai. ECG appointment se pehle staff ko device ke baare mein batana chahiye?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20
+  },
+  {
+    "id": "HG006",
+    "language": "hinglish",
+    "question": "ECG ke pehle skin par lotion ya oil lagane se electrodes ka contact affect ho sakta hai?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22
+  },
+  {
+    "id": "HG007",
+    "language": "hinglish",
+    "question": "Agar pregnancy possible hai, toh X-ray karwane se pehle radiographer ko batana hai kya?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63
+  },
+  {
+    "id": "HG008",
+    "language": "hinglish",
+    "question": "X-ray ke liye kaunse metal items jaise jewellery, watch ya hair clips remove karne pad sakte hain?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67
+  },
+  {
+    "id": "HG009",
+    "language": "hinglish",
+    "question": "Body mein pacemaker ya koi electronic implant ho toh MRI room mein enter karne se pehle kya verification hota hai?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75
+  },
+  {
+    "id": "HG010",
+    "language": "hinglish",
+    "question": "MRI scan se pehle phone, keys, hearing aids aur jewellery ke saath kya karna chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79
+  }
+]

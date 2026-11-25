@@ -1,0 +1,162 @@
+[
+  {
+    "id": "CHEN001",
+    "language": "en",
+    "question": "I've got a colonoscopy coming up. Do I need to stop taking any of my regular tablets?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 39,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN003",
+    "language": "en",
+    "question": "I accidentally had a drink after the cutoff I was given for my colonoscopy. Should I just keep quiet about it?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN004",
+    "language": "en",
+    "question": "The hospital gave me a food and water deadline, but I can't remember it. Can the chatbot give me a general fasting timetable?",
+    "expected_protocol_id": 11,
+    "expected_step_id": 45,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN005",
+    "language": "en",
+    "question": "For my CT appointment, should I wear clothes without metal, and what happens to my jewellery?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN006",
+    "language": "en",
+    "question": "I can't remove a tight ring before my CT scan. Should I force it off?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 57,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN007",
+    "language": "en",
+    "question": "My CT is tomorrow. Is it safe to assume I must not eat anything beforehand?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN008",
+    "language": "en",
+    "question": "I have diabetes and was told my CT might involve fasting. Should I change my insulin dose myself?",
+    "expected_protocol_id": 12,
+    "expected_step_id": 55,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN009",
+    "language": "en",
+    "question": "I have a pacemaker. Is that something the ECG staff need to know, even though the device is already implanted?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 20,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN011",
+    "language": "en",
+    "question": "I usually put moisturiser on every morning. Could that cause a problem with the ECG stickers?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN012",
+    "language": "en",
+    "question": "Should I scrub or shave the skin myself so the ECG electrodes stick properly?",
+    "expected_protocol_id": 9,
+    "expected_step_id": 22,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN013",
+    "language": "en",
+    "question": "I might be pregnant, but I'm not completely sure. Do I still need to tell the radiographer before an X-ray?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN014",
+    "language": "en",
+    "question": "What if I only suspect I could be pregnant and haven't confirmed it? Should I mention that before the X-ray?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 63,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN015",
+    "language": "en",
+    "question": "For an X-ray, could they ask me to remove my glasses, hair clips or removable dental appliances?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN016",
+    "language": "en",
+    "question": "I have a medical aid that contains metal. Should I take it off before my X-ray?",
+    "expected_protocol_id": 13,
+    "expected_step_id": 67,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN017",
+    "language": "en",
+    "question": "I have an implanted electronic device and don't know its exact model. Can I enter the MRI room if it has never caused trouble?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN018",
+    "language": "en",
+    "question": "I've got an old surgical implant and a device card somewhere at home. What should I tell the MRI team?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN019",
+    "language": "en",
+    "question": "Can I keep my hearing aids, phone and watch with me when I go into the MRI scanner room?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN020",
+    "language": "en",
+    "question": "What should I do with my clothes if they have metallic fibres, and what about a medical patch I wear?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "CHEN021",
+    "language": "en",
+    "question": "Can I do it tomorrow?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  },
+  {
+    "id": "CHEN022",
+    "language": "en",
+    "question": "Will that be okay for me?",
+    "expected_protocol_id": null,
+    "expected_step_id": null,
+    "expected_action": "clarification_required"
+  }
+]

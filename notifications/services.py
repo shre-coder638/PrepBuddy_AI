@@ -15,6 +15,8 @@ def send_reminder(reminder: Reminder):
         procedure_name=procedure.procedure_name,
         preparation_step=step.title,
         instructions=step.instruction,
+        dedupe_key=f"reminder:{reminder.pk}:standard",
+        purpose="standard_reminder",
     )
 
     return result

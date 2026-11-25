@@ -19,6 +19,7 @@ from .whatsapp import send_openwa_message
 logger = logging.getLogger(__name__)
 
 MAX_DELIVERY_ATTEMPTS = 3
+MISSED_ALERT_EMAIL_CLAIM_LEASE = timedelta(minutes=5)
 
 # A pending reminder is temporarily hidden from other workers while this
 # timestamp is in the future. If a worker crashes, it becomes eligible again
@@ -70,6 +71,24 @@ def _claim_reminder(reminder_id, now):
             "prep_step",
         ).get(id=reminder_id)
 
+
+def _update_claimed_reminder(reminder, **updates):
+    """Update a reminder only while this worker still owns its claim."""
+    updated = Reminder.objects.filter(
+        pk=reminder.pk,
+        status="pending",
+        next_attempt_at=reminder.next_attempt_at,
+        delivery_attempts=reminder.delivery_attempts,
+    ).update(**updates)
+
+    if updated == 1:
+        for field, value in updates.items():
+            setattr(reminder, field, value)
+        return True
+
+    return False
+
+
 @shared_task
 def process_due_reminders():
     now = timezone.now()
@@ -105,40 +124,43 @@ def process_due_reminders():
             result = send_reminder(reminder)
 
             if isinstance(result, dict) and result:
-                reminder.status = "sent"
-                reminder.sent_at = timezone.now()
-                reminder.next_attempt_at = None
-
                 message_id = result.get("messageId")
+                success_updates = {
+                    "status": "sent",
+                    "sent_at": timezone.now(),
+                    "next_attempt_at": None,
+                    "delivery_status": "accepted" if message_id else "unknown",
+                }
                 if message_id:
-                    reminder.openwa_message_id = str(message_id)
-                    reminder.delivery_status = "accepted"
-                else:
-                    reminder.delivery_status = "unknown"
+                    success_updates["openwa_message_id"] = str(message_id)
+
+                updated = _update_claimed_reminder(
+                    reminder,
+                    **success_updates,
+                )
+
+                if not updated:
                     logger.warning(
-                        "OpenWA accepted reminder %s but returned no messageId; "
-                        "delivery acknowledgements cannot be matched reliably.",
+                        "Reminder %s delivery completed, but this worker "
+                        "no longer owns its claim. The newer claim was preserved.",
                         reminder.id,
                     )
+                else:
+                    if not message_id:
+                        logger.warning(
+                            "OpenWA accepted reminder %s but returned no messageId; "
+                            "delivery acknowledgements cannot be matched reliably.",
+                            reminder.id,
+                        )
 
-                reminder.save(
-                    update_fields=[
-                        "status",
-                        "sent_at",
-                        "next_attempt_at",
-                        "openwa_message_id",
-                        "delivery_status",
-                    ]
-                )
-
-                logger.info(
-                    "Reminder %s accepted by OpenWA on attempt %s. "
-                    "Message ID available: %s. Recipient delivery is not yet "
-                    "confirmed.",
-                    reminder.id,
-                    reminder.delivery_attempts,
-                    bool(message_id),
-                )
+                    logger.info(
+                        "Reminder %s accepted by OpenWA on attempt %s. "
+                        "Message ID available: %s. Recipient delivery is not yet "
+                        "confirmed.",
+                        reminder.id,
+                        reminder.delivery_attempts,
+                        bool(message_id),
+                    )
             else:
                 _schedule_retry(reminder)
 
@@ -163,27 +185,40 @@ def process_due_reminders():
 
 def _schedule_retry(reminder):
     if reminder.delivery_attempts >= MAX_DELIVERY_ATTEMPTS:
-        reminder.status = "failed"
-        reminder.next_attempt_at = None
-        logger.error(
-            "Reminder %s exhausted its delivery attempts.",
-            reminder.id,
-        )
+        status = "failed"
+        next_attempt_at = None
     else:
-        # Return the reminder to the pending queue and replace the temporary
-        # claim lease with the normal retry delay.
-        reminder.status = "pending"
+        # Replace this worker's temporary claim lease with the normal retry delay.
+        status = "pending"
         delay_minutes = RETRY_DELAYS_MINUTES.get(
             reminder.delivery_attempts,
             15,
         )
-        reminder.next_attempt_at = (
+        next_attempt_at = (
             timezone.now() + timedelta(minutes=delay_minutes)
         )
 
-    reminder.save(
-        update_fields=["status", "next_attempt_at"]
+    updated = _update_claimed_reminder(
+        reminder,
+        status=status,
+        next_attempt_at=next_attempt_at,
     )
+
+    if not updated:
+        logger.warning(
+            "Reminder %s retry was not scheduled because this worker "
+            "no longer owns its claim.",
+            reminder.id,
+        )
+        return False
+
+    if status == "failed":
+        logger.error(
+            "Reminder %s exhausted its delivery attempts.",
+            reminder.id,
+        )
+
+    return True
 
 def _queue_missed_reminder_alert(reminder):
     """Create one persistent staff alert per missed reminder."""
@@ -199,15 +234,45 @@ def _queue_missed_reminder_alert(reminder):
 
     return alert
 
+
 def _send_pending_missed_reminder_alerts():
-    """Email staff about alerts that have not been successfully sent."""
-    alerts = MissedReminderAlert.objects.filter(
-        email_sent_at__isnull=True,
-    ).select_related(
-        "reminder__procedure",
+    """Email staff using an atomic, recoverable claim lease."""
+    if not getattr(settings, "EMAIL_SEND_ENABLED", False):
+        logger.info("Missed reminder staff email delivery is disabled.")
+        return
+
+    alert_ids = list(
+        MissedReminderAlert.objects.filter(
+            email_sent_at__isnull=True,
+        ).values_list("pk", flat=True)
     )
 
-    for alert in alerts:
+    for alert_id in alert_ids:
+        claim_time = timezone.now()
+        expired_before = claim_time - MISSED_ALERT_EMAIL_CLAIM_LEASE
+
+        # First claim alerts that have never been claimed.
+        claimed = MissedReminderAlert.objects.filter(
+            pk=alert_id,
+            email_sent_at__isnull=True,
+            email_claimed_at__isnull=True,
+        ).update(email_claimed_at=claim_time)
+
+        # Recover alerts whose previous worker's lease has expired.
+        if claimed != 1:
+            claimed = MissedReminderAlert.objects.filter(
+                pk=alert_id,
+                email_sent_at__isnull=True,
+                email_claimed_at__lt=expired_before,
+            ).update(email_claimed_at=claim_time)
+
+        if claimed != 1:
+            continue
+
+        alert = MissedReminderAlert.objects.select_related(
+            "reminder__procedure",
+        ).get(pk=alert_id)
+
         recipients = list(
             StaffProfile.objects.filter(
                 role__in=["clinic_staff", "doctor"],
@@ -219,12 +284,20 @@ def _send_pending_missed_reminder_alerts():
         )
 
         if not recipients:
-            alert.last_error = "No active staff email recipients configured."
-            alert.save(update_fields=["last_error"])
-            logger.warning(
-                "No staff email recipients for missed reminder %s.",
-                alert.reminder_id,
+            released = MissedReminderAlert.objects.filter(
+                pk=alert_id,
+                email_sent_at__isnull=True,
+                email_claimed_at=claim_time,
+            ).update(
+                last_error="No active staff email recipients configured.",
+                email_claimed_at=None,
             )
+
+            if released:
+                logger.warning(
+                    "No staff email recipients for missed reminder %s.",
+                    alert.reminder_id,
+                )
             continue
 
         reminder = alert.reminder
@@ -261,30 +334,59 @@ def _send_pending_missed_reminder_alerts():
             )
 
             if sent_count == 1:
-                alert.email_sent_at = timezone.now()
-                alert.last_error = ""
-                alert.save(
-                    update_fields=["email_sent_at", "last_error"],
-                )
-                logger.info(
-                    "Staff alert email sent for missed reminder %s.",
-                    reminder.id,
-                )
-            else:
-                alert.last_error = "Email backend did not confirm a sent message."
-                alert.save(update_fields=["last_error"])
-                logger.warning(
-                    "Staff alert email was not confirmed for reminder %s.",
-                    reminder.id,
+                updated = MissedReminderAlert.objects.filter(
+                    pk=alert_id,
+                    email_sent_at__isnull=True,
+                    email_claimed_at=claim_time,
+                ).update(
+                    email_sent_at=timezone.now(),
+                    last_error="",
+                    email_claimed_at=None,
                 )
 
+                if updated == 1:
+                    logger.info(
+                        "Staff alert email sent for missed reminder %s.",
+                        reminder.id,
+                    )
+                else:
+                    logger.warning(
+                        "Email claim was lost before completion for "
+                        "missed reminder %s.",
+                        reminder.id,
+                    )
+            else:
+                updated = MissedReminderAlert.objects.filter(
+                    pk=alert_id,
+                    email_sent_at__isnull=True,
+                    email_claimed_at=claim_time,
+                ).update(
+                    last_error=(
+                        "Email backend did not confirm a sent message."
+                    ),
+                    email_claimed_at=None,
+                )
+
+                if updated:
+                    logger.warning(
+                        "Staff alert email was not confirmed for reminder %s.",
+                        reminder.id,
+                    )
+
         except Exception as exc:
-            alert.last_error = str(exc)[:2000]
-            alert.save(update_fields=["last_error"])
+            MissedReminderAlert.objects.filter(
+                pk=alert_id,
+                email_sent_at__isnull=True,
+                email_claimed_at=claim_time,
+            ).update(
+                last_error=str(exc)[:2000],
+                email_claimed_at=None,
+            )
             logger.exception(
                 "Failed to email staff about missed reminder %s.",
                 reminder.id,
             )
+
 
 def _send_pending_missed_reminder_whatsapp_alerts():
     """Send pending missed-reminder alerts to active doctors."""
@@ -350,6 +452,8 @@ def _send_pending_missed_reminder_whatsapp_alerts():
                 result = send_openwa_message(
                     chat_id=f"{phone}@c.us",
                     text=message,
+                    dedupe_key=f"missed-alert:{alert.pk}:doctor:{doctor.pk}",
+                    purpose="missed_doctor_alert",
                 )
 
                 if not isinstance(result, dict) or not result:
@@ -406,12 +510,22 @@ def check_missed_reminders():
     # Mark sent reminders as missed if they remain unconfirmed.
     reminders = Reminder.objects.filter(
         status="sent",
+        confirmed_at__isnull=True,
         sent_at__lte=cutoff,
     ).select_related("prep_step", "procedure")
 
     for reminder in reminders:
+        updated = Reminder.objects.filter(
+            pk=reminder.pk,
+            status="sent",
+            confirmed_at__isnull=True,
+            sent_at__lte=cutoff,
+        ).update(status="missed")
+
+        if updated != 1:
+            continue
+
         reminder.status = "missed"
-        reminder.save(update_fields=["status"])
         _queue_missed_reminder_alert(reminder)
 
         if reminder.prep_step.is_critical:
@@ -438,11 +552,23 @@ def check_missed_reminders():
     ).select_related("prep_step", "procedure")
 
     for reminder in overdue_pending:
+        updated = Reminder.objects.filter(
+            pk=reminder.pk,
+            status="pending",
+            scheduled_at__lte=now,
+            procedure__scheduled_at__lte=now,
+        ).exclude(
+            procedure__status__in=["cancelled", "completed"]
+        ).update(
+            status="missed",
+            next_attempt_at=None,
+        )
+
+        if updated != 1:
+            continue
+
         reminder.status = "missed"
         reminder.next_attempt_at = None
-        reminder.save(
-            update_fields=["status", "next_attempt_at"]
-        )
         _queue_missed_reminder_alert(reminder)
 
         if reminder.prep_step.is_critical:
@@ -539,29 +665,32 @@ def process_single_test_reminder(reminder_id):
                 "This is a PrepBuddy connectivity test. "
                 "No medical action is required."
             ),
+            dedupe_key=f"reminder:{reminder.pk}:test",
+            purpose="test_reminder",
         )
 
         if isinstance(result, dict) and result:
-            reminder.status = "sent"
-            reminder.sent_at = timezone.now()
-            reminder.next_attempt_at = None
-
             message_id = result.get("messageId")
+            success_updates = {
+                "status": "sent",
+                "sent_at": timezone.now(),
+                "next_attempt_at": None,
+                "delivery_status": "accepted" if message_id else "unknown",
+            }
             if message_id:
-                reminder.openwa_message_id = str(message_id)
-                reminder.delivery_status = "accepted"
-            else:
-                reminder.delivery_status = "unknown"
+                success_updates["openwa_message_id"] = str(message_id)
 
-            reminder.save(
-                update_fields=[
-                    "status",
-                    "sent_at",
-                    "next_attempt_at",
-                    "openwa_message_id",
-                    "delivery_status",
-                ]
+            updated = _update_claimed_reminder(
+                reminder,
+                **success_updates,
             )
+
+            if not updated:
+                return {
+                    "success": False,
+                    "reason": "claim_lost",
+                    "reminder_id": reminder.id,
+                }
 
             return {
                 "success": True,

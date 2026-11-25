@@ -28,7 +28,10 @@ from accounts.api_views import doctor_profile_api
 from accounts.api_views import user_settings_api
 from patients.api_views import patients_list, delete_patient_api
 
+from .staging import healthz
+
 urlpatterns = [
+    path("healthz/", healthz, name="healthz"),
     path("admin/", admin.site.urls),
 
     path("", include("frontend.urls")),

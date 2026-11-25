@@ -1,0 +1,31 @@
+﻿services:
+  infrastructure-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: prepbuddy-celery:local
+    container_name: prepbuddy-render-infra-worker
+
+    profiles:
+      - infra-test
+
+    command:
+      - celery
+      - -A
+      - config
+      - worker
+      - --loglevel=info
+      - --pool=solo
+      - --queues=prepbuddy_infrastructure
+      - --hostname=infra-test@%h
+
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      SECRET_KEY: ${CELERY_SECRET_KEY:?CELERY_SECRET_KEY is required}
+      DATABASE_URL: ${CELERY_DATABASE_URL:?CELERY_DATABASE_URL is required}
+      REDIS_URL: ${CELERY_REDIS_URL:?CELERY_REDIS_URL is required}
+      DEBUG: "False"
+      WHATSAPP_SEND_ENABLED: "False"
+
+    restart: "no"

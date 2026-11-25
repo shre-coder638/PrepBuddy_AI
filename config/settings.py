@@ -12,14 +12,21 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "prepbuddy-test@example.com"
+EMAIL_SEND_ENABLED = os.getenv("EMAIL_SEND_ENABLED", "False").lower() == "true"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
 
 # Quick-start development settings - unsuitable for production
@@ -28,14 +35,16 @@ DEFAULT_FROM_EMAIL = "prepbuddy-test@example.com"
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# SECURITY WARNING: debug must be disabled in production.
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "italicize-unplanted-preschool.ngrok-free.dev",
-    "testserver"
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "127.0.0.1,localhost,italicize-unplanted-preschool.ngrok-free.dev,testserver",
+    ).split(",")
+    if host.strip()
 ]
 
 
@@ -68,6 +77,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -99,16 +109,27 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=not DEBUG,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    }
 
 
 # Password validation
@@ -145,8 +166,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
@@ -197,19 +228,126 @@ WHATSAPP_API_VERSION = os.getenv(
 )
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
 ]
 
-OPENWA_BASE_URL = "http://localhost:2785"
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+
+# Production HTTPS settings (disabled locally unless explicitly enabled).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "False").lower() == "true"
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False").lower() == "true"
+CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False").lower() == "true"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+
+SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", "False"
+).lower() == "true"
+SECURE_HSTS_PRELOAD = os.getenv(
+    "SECURE_HSTS_PRELOAD", "False"
+).lower() == "true"
+
+
+OPENWA_BASE_URL = os.getenv(
+    "OPENWA_BASE_URL",
+    "http://localhost:2785",
+).rstrip("/")
 OPENWA_API_KEY = os.getenv("OPENWA_API_KEY")
-OPENWA_SESSION_ID = "1f405068-86f3-4d84-b473-bc0632f5e772"
+OPENWA_PROXY_TOKEN = os.getenv("OPENWA_PROXY_TOKEN", "").strip()
+OPENWA_RELAY_URL = os.getenv("OPENWA_RELAY_URL", "").strip()
+OPENWA_WEBHOOK_SECRET = os.getenv("OPENWA_WEBHOOK_SECRET", "").strip()
+OPENWA_SESSION_ID = os.getenv(
+    "OPENWA_SESSION_ID",
+    "1f405068-86f3-4d84-b473-bc0632f5e772",
+)
 
 # Disable real WhatsApp delivery unless explicitly enabled.
 WHATSAPP_SEND_ENABLED = os.getenv(
     "WHATSAPP_SEND_ENABLED", "false"
 ).lower() == "true"
+
+# Preparation assistant backend configuration.
+import os as _ann_os
+
+CHATBOT_BACKEND = _ann_os.getenv(
+    "CHATBOT_BACKEND",
+    "rag",
+).strip().lower()
+
+ANN_RECORD_EXPERIENCES = (
+    _ann_os.getenv(
+        "ANN_RECORD_EXPERIENCES",
+        "False",
+    ).strip().lower() == "true"
+)
+
+
+# Isolated staging deployment
+STAGING_MODE = os.getenv(
+    "STAGING_MODE", "False"
+).strip().lower() == "true"
+
+STAGING_ACCESS_TOKEN = os.getenv("STAGING_ACCESS_TOKEN", "")
+
+if STAGING_MODE:
+    from django.core.exceptions import ImproperlyConfigured
+
+    if len(STAGING_ACCESS_TOKEN) < 32:
+        raise ImproperlyConfigured(
+            "Staging requires an access token of at least 32 characters."
+        )
+
+    if DEBUG:
+        raise ImproperlyConfigured(
+            "DEBUG must be disabled in staging."
+        )
+
+    if (
+        not DATABASE_URL
+        or DATABASES["default"]["ENGINE"]
+        != "django.db.backends.postgresql"
+        or DATABASES["default"]["NAME"]
+        != "prepbuddy_ann_staging"
+    ):
+        raise ImproperlyConfigured(
+            "Staging requires a dedicated PostgreSQL database "
+            "named prepbuddy_ann_staging."
+        )
+
+    CHATBOT_BACKEND = "ann"
+    ANN_RECORD_EXPERIENCES = False
+    WHATSAPP_SEND_ENABLED = False
+    EMAIL_SEND_ENABLED = False
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    SECURE_REDIRECT_EXEMPT = [
+        r"^healthz/$",
+    ]
+
+    # Security middleware runs before the staging access gate.
+    # The gate runs before WhiteNoise and application middleware.
+    MIDDLEWARE = [
+        "django.middleware.security.SecurityMiddleware",
+        "config.staging.StagingAccessMiddleware",
+    ] + [
+        middleware for middleware in MIDDLEWARE
+        if middleware != "django.middleware.security.SecurityMiddleware"
+    ]

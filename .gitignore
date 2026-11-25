@@ -48,9 +48,33 @@ dist-ssr
 *.sw?
 
 # Celery Beat runtime state
+celerybeat-*-schedule*
 celerybeat-schedule*
 celerybeat-test-schedule*
 
 # Local backup files
 *.bak
 annotate_source.py
+
+# Django collectstatic output
+staticfiles/
+
+
+# Deployment security exclusions
+.env.*
+!.env.example
+celerybeat-backup*/
+*.bak.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.vhdx
+*.dump
+
+
+# Local experimental ANN artifacts
+/chatbot/datasets/
+/chatbot/evaluation/results/
+**/*_backup.json
+**/*.corrupt_backup.json

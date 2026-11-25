@@ -299,10 +299,8 @@ RETRIEVAL_CONCEPTS = {
         "heart", "implantable", "icd", "icds",
     },
     "arrival_timing": {
-        "arrive", "arriv", "arrival", 
-        "reach", "reaching", "hospital", 
-        "hospitals", "imaging", "department",
-        "report", "reporting",
+        "arrive", "arriv", "arrival",
+        "reach", "reaching",
     },
     "fasting": {"fast"},
 }
@@ -338,6 +336,28 @@ def _has_single_keyword_overlap(question, document):
     return bool(question_words & document_words)
 
 
+
+
+def _is_explicit_step_lookup(question, document):
+    """Allow explicit lookups when at least two step-title terms match."""
+    lookup_patterns = (
+        r"\bwhat\s+does\b",
+        r"\bwhat\s+is\b",
+        r"\bwhat\s+are\b",
+        r"\b(?:tell|show)\s+me\b",
+        r"\b(?:repeat|explain|describe)\b",
+    )
+
+    if not any(
+        re.search(pattern, question, flags=re.IGNORECASE)
+        for pattern in lookup_patterns
+    ):
+        return False
+
+    question_words = _normalized_keywords(question)
+    step_words = _normalized_keywords(document.get("step", ""))
+
+    return len(question_words & step_words) >= 2
 
 def _ollama_judges_relevance(question, document):
     """Ask Ollama whether a stored instruction is relevant to a question."""
@@ -520,9 +540,13 @@ def retrieve_steps(
         # Preserve explicit arrival-related matches.
         if (
             "arrival_timing" in RETRIEVAL_CONCEPTS
-            and _has_explicit_concept_match(
-                evaluation_question,
-                document,
+            and bool(
+                _normalized_keywords(evaluation_question)
+                & RETRIEVAL_CONCEPTS["arrival_timing"]
+            )
+            and bool(
+                _document_keywords(document)
+                & RETRIEVAL_CONCEPTS["arrival_timing"]
             )
             and document.get("step", "").lower()
             == "arrive and complete the final safety check"
@@ -534,6 +558,15 @@ def retrieve_steps(
         if _has_explicit_concept_match(
             evaluation_question,
             document,
+        ):
+            relevant.append((score, document))
+            continue
+
+        # Direct step-title lookups are safe only for non-contextual
+        # questions with at least two meaningful title-word matches.
+        if (
+            not followup_match
+            and _is_explicit_step_lookup(evaluation_question, document)
         ):
             relevant.append((score, document))
             continue

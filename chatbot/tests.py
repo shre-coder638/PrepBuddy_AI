@@ -3,7 +3,13 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from .rag import _cosine_similarity, retrieve_steps, answer_with_rag
+from .rag import (
+    _cosine_similarity,
+    _has_explicit_concept_match,
+    retrieve_steps,
+    answer_with_rag,
+)
+
 
 class RagUtilityTests(SimpleTestCase):
     def test_cosine_similarity_identical_vectors(self):
@@ -28,6 +34,45 @@ class RagUtilityTests(SimpleTestCase):
         self.assertEqual(
             _cosine_similarity([1.0, 0.0], [1.0]),
             0.0,
+        )
+    def test_arrival_terms_match_arrival_instruction(self):
+        document = {
+            "step": "Prepare for your MRI",
+            "instruction": (
+                "Arrive according to the imaging department's instructions."
+            ),
+        }
+
+        self.assertTrue(
+            _has_explicit_concept_match("When should I arrive?", document)
+        )
+
+    def test_hospital_alone_does_not_match_arrival_instruction(self):
+        document = {
+            "step": "Prepare for your MRI",
+            "instruction": (
+                "Arrive according to the imaging department's instructions."
+            ),
+        }
+
+        self.assertFalse(
+            _has_explicit_concept_match(
+                "What should I do at the hospital?", document
+            )
+        )
+
+    def test_imaging_department_alone_does_not_match_arrival_instruction(self):
+        document = {
+            "step": "Prepare for your MRI",
+            "instruction": (
+                "Arrive according to the imaging department's instructions."
+            ),
+        }
+
+        self.assertFalse(
+            _has_explicit_concept_match(
+                "Which imaging department handles my appointment?", document
+            )
         )
 
 class RagBehaviorTests(SimpleTestCase):
@@ -73,6 +118,72 @@ class RagBehaviorTests(SimpleTestCase):
         self.assertTrue(result["needs_clinical_team"])
         self.assertEqual(result["sources"], [])
         mock_retrieve.assert_not_called()
+
+    @patch("chatbot.rag._ollama_judges_relevance")
+    @patch("chatbot.rag._load_knowledge")
+    @patch("chatbot.rag._embed_texts")
+    def test_explicit_step_title_lookup_does_not_require_relevance_judge(
+        self,
+        mock_embed,
+        mock_load,
+        mock_relevance,
+    ):
+        mock_load.return_value = [
+            {
+                "protocol_id": 16,
+                "content": "test notice",
+                "protocol": "QA protocol",
+                "step": "Read the test notice",
+                "instruction": "TEST ONLY: No preparation action is required.",
+                "minutes_before_procedure": 1440,
+                "is_critical": False,
+                "embedding": [1.0, 0.0],
+            }
+        ]
+        mock_embed.return_value = [[1.0, 0.0]]
+        mock_relevance.return_value = False
+
+        results = retrieve_steps(
+            "What does my stored test notice say?",
+            protocol_id=16,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["step"], "Read the test notice")
+        self.assertIn("TEST ONLY", results[0]["instruction"])
+        mock_relevance.assert_not_called()
+
+    @patch("chatbot.rag._ollama_judges_relevance")
+    @patch("chatbot.rag._load_knowledge")
+    @patch("chatbot.rag._embed_texts")
+    def test_single_step_title_word_still_requires_relevance_judge(
+        self,
+        mock_embed,
+        mock_load,
+        mock_relevance,
+    ):
+        mock_load.return_value = [
+            {
+                "protocol_id": 16,
+                "content": "test notice",
+                "protocol": "QA protocol",
+                "step": "Read the test notice",
+                "instruction": "TEST ONLY: No preparation action is required.",
+                "minutes_before_procedure": 1440,
+                "is_critical": False,
+                "embedding": [1.0, 0.0],
+            }
+        ]
+        mock_embed.return_value = [[1.0, 0.0]]
+        mock_relevance.return_value = False
+
+        results = retrieve_steps(
+            "What does my notice say?",
+            protocol_id=16,
+        )
+
+        self.assertEqual(results, [])
+        mock_relevance.assert_called_once()
 
     @patch("chatbot.rag._ollama_judges_relevance")
     @patch("chatbot.rag._load_knowledge")
@@ -521,3 +632,53 @@ class RagBehaviorTests(SimpleTestCase):
             results[0]["step"],
             "Review Your Preparation Instructions",
         )
+
+    @patch("chatbot.rag._ollama_judges_relevance")
+    @patch("chatbot.rag._load_knowledge")
+    @patch("chatbot.rag._embed_texts")
+    def test_pacemaker_question_does_not_prioritize_arrival_step(
+        self,
+        mock_embed,
+        mock_load,
+        mock_relevance,
+    ):
+        mock_load.return_value = [
+            {
+                "protocol_id": 14,
+                "content": "MRI device safety pacemaker",
+                "protocol": "Short-Notice MRI Preparation",
+                "step": "MRI device safety",
+                "instruction": "Tell the MRI team if you have a pacemaker.",
+                "minutes_before_procedure": 60,
+                "is_critical": True,
+                "embedding": [1.0, 0.0],
+            },
+            {
+                "protocol_id": 14,
+                "content": "MRI arrival pacemaker",
+                "protocol": "Short-Notice MRI Preparation",
+                "step": "Arrive and complete the final safety check",
+                "instruction": (
+                    "Arrive according to the imaging department's "
+                    "instructions. Tell staff if you have a pacemaker."
+                ),
+                "minutes_before_procedure": 30,
+                "is_critical": True,
+                "embedding": [0.8, 0.6],
+            },
+        ]
+
+        mock_embed.return_value = [[1.0, 0.0]]
+
+        results = retrieve_steps(
+            "What should I know about my pacemaker?",
+            protocol_id=14,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["step"], "MRI device safety")
+        self.assertEqual(
+            results[1]["step"],
+            "Arrive and complete the final safety check",
+        )
+        mock_relevance.assert_not_called()

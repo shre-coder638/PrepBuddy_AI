@@ -1,0 +1,84 @@
+services:
+  - type: web
+    name: prepbuddy-ann-staging
+    runtime: docker
+    region: singapore
+    plan: 1c-2g
+    branch: feature/option-b-ann
+    autoDeployTrigger: "off"
+
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+    healthCheckPath: /healthz/
+    preDeployCommand: python manage.py migrate --noinput
+
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+
+      - key: STAGING_ACCESS_TOKEN
+        generateValue: true
+
+      - key: DATABASE_URL
+        sync: false
+
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: prepbuddy-ann-staging
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+
+      - key: CSRF_TRUSTED_ORIGINS
+        fromService:
+          type: web
+          name: prepbuddy-ann-staging
+          envVarKey: RENDER_EXTERNAL_URL
+
+      - key: CORS_ALLOWED_ORIGINS
+        value: ""
+
+      - key: DEBUG
+        value: "False"
+
+      - key: STAGING_MODE
+        value: "True"
+
+      - key: CHATBOT_BACKEND
+        value: ann
+
+      - key: ANN_RECORD_EXPERIENCES
+        value: "False"
+
+      - key: EMAIL_SEND_ENABLED
+        value: "False"
+
+      - key: WHATSAPP_SEND_ENABLED
+        value: "False"
+
+      - key: HF_HUB_OFFLINE
+        value: "1"
+
+      - key: TRANSFORMERS_OFFLINE
+        value: "1"
+
+      - key: OMP_NUM_THREADS
+        value: "1"
+
+      - key: MKL_NUM_THREADS
+        value: "1"
+
+      - key: TOKENIZERS_PARALLELISM
+        value: "false"
+
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+
+      - key: CSRF_COOKIE_SECURE
+        value: "True"
+
+      - key: SECURE_HSTS_SECONDS
+        value: "3600"

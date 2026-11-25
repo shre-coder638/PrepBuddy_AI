@@ -1,12 +1,16 @@
+import hashlib
+import hmac
 import json
 import logging
 import requests
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from chatbot.views import answer_question
+from chatbot.rag import safety_response
+from chatbot.ann.clarification import assess_clarification
 from chatbot.sentiment import analyze_patient_message
 from chatbot.response_generator import select_communication_style
 from chatbot.conversation import save_conversation_message
@@ -22,30 +26,52 @@ from chatbot.conversation import (
     is_context_dependent_followup,
 )
 
-from .whatsapp import send_openwa_message
-from .models import (WhatsAppAssistantSession, ProcessedWhatsAppMessage, WhatsAppMessageAnalysis)
+from .whatsapp import send_openwa_message, WhatsAppOutboundError
+from .models import (
+    WhatsAppAssistantSession,
+    ProcessedWhatsAppMessage,
+    WhatsAppMessageAnalysis,
+    WhatsAppOutboundMessage,
+)
 
 logger = logging.getLogger(__name__)
 
 def mark_whatsapp_message_processed(message_record):
-    if message_record is not None:
-        message_record.is_processed = True
-        message_record.processed_at = timezone.now()
-        message_record.processing_started_at = None
-        message_record.save(
-            update_fields=[
-                "is_processed",
-                "processed_at",
-                "processing_started_at",
-            ]
-        )
+    if message_record is None or message_record.processing_started_at is None:
+        return False
+
+    claim_token = message_record.processing_started_at
+
+    updated = ProcessedWhatsAppMessage.objects.filter(
+        pk=message_record.pk,
+        is_processed=False,
+        processing_started_at=claim_token,
+    ).update(
+        is_processed=True,
+        processed_at=timezone.now(),
+        processing_started_at=None,
+    )
+
+    message_record.refresh_from_db()
+    return updated == 1
+
 
 def release_whatsapp_message_claim(message_record):
-    if message_record is not None and not message_record.is_processed:
-        message_record.processing_started_at = None
-        message_record.save(
-            update_fields=["processing_started_at"]
-        )
+    if message_record is None or message_record.processing_started_at is None:
+        return False
+
+    claim_token = message_record.processing_started_at
+
+    updated = ProcessedWhatsAppMessage.objects.filter(
+        pk=message_record.pk,
+        is_processed=False,
+        processing_started_at=claim_token,
+    ).update(
+        processing_started_at=None,
+    )
+
+    message_record.refresh_from_db()
+    return updated == 1
 
 from datetime import timedelta
 
@@ -58,7 +84,6 @@ def claim_whatsapp_message(message_id):
     Returns (record, claimed).
     """
     lease_timeout = timedelta(minutes=5)
-    current_time = timezone.now()
 
     try:
         with transaction.atomic():
@@ -73,6 +98,8 @@ def claim_whatsapp_message(message_id):
                 .select_for_update()
                 .get(pk=record.pk)
             )
+
+            current_time = timezone.now()
 
             if record.is_processed:
                 return record, False
@@ -100,6 +127,8 @@ def claim_whatsapp_message(message_id):
                 .get(message_id=str(message_id))
             )
 
+            current_time = timezone.now()
+
             if record.is_processed:
                 return record, False
 
@@ -125,6 +154,31 @@ def openwa_webhook(request):
             {"error": "POST request required"},
             status=405
         )
+
+    secret = settings.OPENWA_WEBHOOK_SECRET
+    if not secret:
+        logger.error("OpenWA webhook secret is not configured.")
+        return JsonResponse(
+            {"error": "Webhook authentication is not configured"},
+            status=503,
+        )
+
+    received_signature = request.headers.get("X-OpenWA-Signature", "")
+    expected_digest = hmac.new(
+        secret.encode("utf-8"),
+        request.body,
+        hashlib.sha256,
+    ).hexdigest()
+    expected_signature = f"sha256={expected_digest}"
+
+    if not hmac.compare_digest(received_signature, expected_signature):
+        logger.warning("OpenWA webhook rejected: invalid signature.")
+        return JsonResponse(
+            {"error": "Invalid webhook signature"},
+            status=401,
+        )
+
+    message_record = None
 
     try:
         payload = json.loads(request.body)
@@ -185,10 +239,7 @@ def openwa_webhook(request):
 
         # Handle outbound-message delivery acknowledgements separately.
         if event in ("message.ack", "message.failed"):
-            message_id = (
-                data.get("messageId")
-                or data.get("id")
-            )
+            message_id = data.get("messageId") or data.get("id")
 
             raw_status = (
                 "failed"
@@ -204,17 +255,13 @@ def openwa_webhook(request):
                     "reason": "Missing message ID",
                 })
 
-            if isinstance(raw_status, str):
-                delivery_status = raw_status.strip().lower()
-            else:
-                delivery_status = None
+            delivery_status = (
+                raw_status.strip().lower()
+                if isinstance(raw_status, str)
+                else None
+            )
 
-            allowed_statuses = {
-                "sent",
-                "delivered",
-                "read",
-                "failed",
-            }
+            allowed_statuses = {"sent", "delivered", "read", "failed"}
 
             if delivery_status not in allowed_statuses:
                 logger.warning("OpenWA acknowledgement had an unrecognized status.")
@@ -224,20 +271,20 @@ def openwa_webhook(request):
                     "reason": "Unrecognized delivery status",
                 })
 
-            reminder = Reminder.objects.filter(
-                openwa_message_id=str(message_id),
-            ).first()
+            message_id = str(message_id)
 
-            if reminder is None:
-                return JsonResponse({
-                    "received": True,
-                    "updated": False,
-                    "ignored": True,
-                    "reason": "Not a scheduled reminder message",
-                })
+            # Never choose an arbitrary row when an OpenWA ID is duplicated.
+            outbound_matches = list(
+                WhatsAppOutboundMessage.objects.filter(
+                    openwa_message_id=message_id,
+                )[:2]
+            )
+            reminder_matches = list(
+                Reminder.objects.filter(
+                    openwa_message_id=message_id,
+                )[:2]
+            )
 
-            # Avoid regressing a known delivery state if events arrive
-            # out of order. A late failure must not undo delivery/read.
             status_rank = {
                 "pending": 0,
                 "accepted": 1,
@@ -246,49 +293,91 @@ def openwa_webhook(request):
                 "read": 4,
             }
 
-            current_status = reminder.delivery_status
+            def apply_delivery_status(record):
+                current_status = record.delivery_status
 
-            if (
-                current_status in ("delivered", "read")
-                and delivery_status == "failed"
-            ):
-                logger.info(
-                    "Ignored a late failure acknowledgement for reminder %s.",
-                    reminder.id,
+                # A late failure must not undo a confirmed delivery or read.
+                if (
+                    current_status in ("delivered", "read")
+                    and delivery_status == "failed"
+                ):
+                    return False
+
+                if (
+                    delivery_status in status_rank
+                    and current_status in status_rank
+                    and status_rank[delivery_status] < status_rank[current_status]
+                ):
+                    return False
+
+                if current_status != delivery_status:
+                    record.delivery_status = delivery_status
+                    record.save(update_fields=["delivery_status"])
+
+                return True
+
+            updated = False
+            reminder_id = None
+            ambiguous = False
+
+            if len(outbound_matches) == 1:
+                outbound = outbound_matches[0]
+                if apply_delivery_status(outbound):
+                    updated = True
+                    logger.info(
+                        "Outbound message %s delivery status updated to %s.",
+                        outbound.id,
+                        delivery_status,
+                    )
+            elif len(outbound_matches) > 1:
+                ambiguous = True
+                logger.warning(
+                    "Ambiguous outbound message ID %s; no ledger row updated.",
+                    message_id,
                 )
+
+            if len(reminder_matches) == 1:
+                reminder = reminder_matches[0]
+                if apply_delivery_status(reminder):
+                    updated = True
+                    reminder_id = reminder.id
+                    logger.info(
+                        "Reminder %s delivery status updated to %s.",
+                        reminder.id,
+                        delivery_status,
+                    )
+            elif len(reminder_matches) > 1:
+                ambiguous = True
+                logger.warning(
+                    "Ambiguous reminder message ID %s; no reminder row updated.",
+                    message_id,
+                )
+
+            if not updated:
+                if ambiguous:
+                    reason = "Ambiguous message ID"
+                elif outbound_matches or reminder_matches:
+                    reason = "Existing delivery state takes precedence"
+                else:
+                    reason = "No matching outbound message"
+
                 return JsonResponse({
                     "received": True,
                     "updated": False,
-                    "reason": "Existing delivery state takes precedence",
+                    "ignored": True,
+                    "reason": reason,
                 })
 
-            if (
-                delivery_status in status_rank
-                and current_status in status_rank
-                and status_rank[delivery_status] < status_rank[current_status]
-            ):
-                return JsonResponse({
-                    "received": True,
-                    "updated": False,
-                    "reason": "Stale acknowledgement",
-                })
-
-            if reminder.delivery_status != delivery_status:
-                reminder.delivery_status = delivery_status
-                reminder.save(update_fields=["delivery_status"])
-
-            logger.info(
-                "Reminder %s delivery status updated to %s.",
-                reminder.id,
-                delivery_status,
-            )
-
-            return JsonResponse({
+            response_data = {
                 "received": True,
                 "updated": True,
-                "reminder_id": reminder.id,
                 "delivery_status": delivery_status,
-            })
+            }
+
+            if reminder_id is not None:
+                response_data["reminder_id"] = reminder_id
+
+            return JsonResponse(response_data)
 
         # Keep the existing inbound DONE handler unchanged.
         if event != "message.received":
@@ -297,18 +386,44 @@ def openwa_webhook(request):
                 "ignored": True,
             })
 
-        sender = data.get("from", "").strip()
-        message = data.get("body", "").strip()
+        sender_value = data.get("from")
+        body_value = data.get("body")
+
+        # Reject malformed inbound fields instead of allowing .strip()
+        # to raise an unexpected exception.
+        if not isinstance(sender_value, str) or not sender_value.strip():
+            logger.warning("OpenWA inbound message has an invalid sender.")
+            mark_whatsapp_message_processed(message_record)
+
+            return JsonResponse({
+                "received": True,
+                "processed": True,
+                "error": "Invalid sender",
+            }, status=400)
+
+        if not isinstance(body_value, str):
+            logger.warning("OpenWA inbound message has an invalid body.")
+            mark_whatsapp_message_processed(message_record)
+
+            return JsonResponse({
+                "received": True,
+                "processed": True,
+                "error": "Invalid message body",
+            }, status=400)
+
+        sender = sender_value.strip()
+        message = body_value.strip()
 
         logger.info("OpenWA inbound patient message received.")
 
-        # Accept DONE confirmations and ordinary patient questions.
+        # Empty but valid text messages are safely ignored.
         if not message:
-         mark_whatsapp_message_processed(message_record)
-         return JsonResponse({
-             "received": True,
-             "message": "Empty message ignored",
-         })
+            mark_whatsapp_message_processed(message_record)
+
+            return JsonResponse({
+                "received": True,
+                "message": "Empty message ignored",
+            })
 
         normalized_message = " ".join(message.strip().upper().split())
 
@@ -329,32 +444,45 @@ def openwa_webhook(request):
             "X-API-Key": settings.OPENWA_API_KEY,
         }
 
-        phone_response = requests.get(
-            phone_url,
-            headers=headers,
-            timeout=15,
-        )
+        try:
+            phone_response = requests.get(
+                phone_url,
+                headers=headers,
+                timeout=15,
+            )
 
-        logger.info("OpenWA contact lookup completed with HTTP %s.", phone_response.status_code)
+            logger.info(
+                "OpenWA contact lookup completed with HTTP %s.",
+                phone_response.status_code,
+            )
 
-        phone_response.raise_for_status()
+            phone_response.raise_for_status()
+            phone_data = phone_response.json()
 
-        phone_data = phone_response.json()
+            if not isinstance(phone_data, dict):
+                raise ValueError("OpenWA returned an invalid contact response")
 
-        phone_number = str(
-            phone_data.get("phone", "")
-        ).strip()
+            raw_phone_number = phone_data.get("phone")
 
-        # Remove + if OpenWA ever returns it
-        phone_number = phone_number.lstrip("+")
+            if not isinstance(raw_phone_number, str):
+                raise ValueError("OpenWA returned an invalid phone number")
 
+            phone_number = raw_phone_number.strip().lstrip("+")
 
-        if not phone_number:
+            if not phone_number:
+                raise ValueError("OpenWA returned an empty phone number")
+
+        except Exception:
+            logger.exception("OpenWA contact lookup failed.")
+
+            release_whatsapp_message_claim(message_record)
+
             return JsonResponse({
                 "received": True,
-                "confirmed": False,
-                "message": "Could not resolve WhatsApp phone number"
-            })
+                "processed": False,
+                "message": "Contact lookup temporarily unavailable",
+            }, status=502)
+
 
         # Only registered patients may interact with PrepBuddy.
         patient = Patient.objects.filter(
@@ -373,6 +501,58 @@ def openwa_webhook(request):
                 "message": "Sender is not a registered patient",
             })
 
+        # Retry the acknowledgement for a reminder already confirmed
+        # by this exact inbound WhatsApp message.
+        if is_done and message_record.confirmed_reminder_id:
+            reminder = message_record.confirmed_reminder
+
+            # Never allow a message to acknowledge another patient's reminder.
+            if reminder.procedure.patient_id != patient.id:
+                logger.error(
+                    "DONE message is linked to a reminder belonging to another patient."
+                )
+                mark_whatsapp_message_processed(message_record)
+                return JsonResponse({
+                    "received": True,
+                    "confirmed": False,
+                    "message": "Reminder ownership mismatch",
+                }, status=403)
+
+            confirmation_message = (
+                "\u2705 Your preparation step has been confirmed!\n\n"
+                "Thank you. PrepBuddy has recorded your confirmation."
+            )
+
+            try:
+                send_openwa_message(
+                    chat_id=sender,
+                    text=confirmation_message,
+                    dedupe_key=f"inbound:{message_record.message_id}:done_ack",
+                    purpose="done_ack",
+                )
+            except Exception:
+                logger.exception(
+                    "Retry of DONE acknowledgement failed for reminder %s.",
+                    reminder.id,
+                )
+                release_whatsapp_message_claim(message_record)
+
+                return JsonResponse({
+                    "received": True,
+                    "confirmed": True,
+                    "reminder_id": reminder.id,
+                    "acknowledgement_sent": False,
+                }, status=500)
+
+            mark_whatsapp_message_processed(message_record)
+
+            return JsonResponse({
+                "received": True,
+                "confirmed": True,
+                "reminder_id": reminder.id,
+                "acknowledgement_sent": True,
+            })
+
         # Activate the assistant only for registered patients.
         if is_activation:
             session, created = WhatsAppAssistantSession.objects.get_or_create(
@@ -385,17 +565,31 @@ def openwa_webhook(request):
                 update_fields=["is_active", "activated_at", "updated_at"]
             )
 
-            send_openwa_message(
-                sender,
-                "Hello! I'm PrepBuddy, your preparation-instructions "
-                "assistant.\n\n"
-                "You can ask me questions about your stored preparation "
-                "instructions, and I'll help when a reliable answer is "
-                "available.\n\n"
-                "For medical concerns or anything unclear, please contact "
-                "your clinical team.\n\n"
-                "You can still reply DONE to confirm a preparation step."
-            )
+            try:
+                send_openwa_message(
+                    chat_id=sender,
+                    text=(
+                        "Hello! I'm PrepBuddy, your preparation-instructions "
+                        "assistant.\n\n"
+                        "You can ask me questions about your stored preparation "
+                        "instructions, and I'll help when a reliable answer is "
+                        "available.\n\n"
+                        "For medical concerns or anything unclear, please contact "
+                        "your clinical team.\n\n"
+                        "You can still reply DONE to confirm a preparation step."
+                    ),
+                    dedupe_key=f"inbound:{message_record.message_id}:activation",
+                    purpose="assistant_activation",
+                )
+            except Exception:
+                logger.exception("PrepBuddy activation message send failed.")
+                release_whatsapp_message_claim(message_record)
+                return JsonResponse({
+                    "received": True,
+                    "assistant_activated": False,
+                    "error": "Activation message delivery failed; retry permitted.",
+                }, status=500)
+
             mark_whatsapp_message_processed(message_record)
 
             return JsonResponse({
@@ -415,11 +609,25 @@ def openwa_webhook(request):
             ).first()
 
             if session is None:
-                send_openwa_message(
-                    sender,
-                    "To chat with PrepBuddy, reply TALK TO ASSISTANT. "
-                    "You can also reply DONE to confirm a preparation step."
-                )
+                try:
+                    send_openwa_message(
+                        chat_id=sender,
+                        text=(
+                            "To chat with PrepBuddy, reply TALK TO ASSISTANT. "
+                            "You can also reply DONE to confirm a preparation step."
+                        ),
+                        dedupe_key=f"inbound:{message_record.message_id}:inactive_notice",
+                        purpose="inactive_notice",
+                    )
+                except Exception:
+                    logger.exception("Inactive-session notice send failed.")
+                    release_whatsapp_message_claim(message_record)
+                    return JsonResponse({
+                        "received": True,
+                        "assistant_activated": False,
+                        "error": "Notice delivery failed; retry permitted.",
+                    }, status=500)
+
                 mark_whatsapp_message_processed(message_record)
 
                 return JsonResponse({
@@ -515,7 +723,29 @@ def openwa_webhook(request):
                         .first()
                     )
 
-                if procedure is None and not is_general_help:
+                escalation = safety_response(
+                    message,
+                    requires_human=requires_human,
+                )
+                from django.conf import settings as assistant_settings
+
+                if (
+                    escalation is None
+                    and getattr(
+                        assistant_settings,
+                        "CHATBOT_BACKEND",
+                        "rag",
+                    ) == "ann"
+                ):
+                    from chatbot.ann.multilingual_safety import (
+                        multilingual_safety_response,
+                    )
+
+                    escalation = multilingual_safety_response(message)
+
+                if escalation is not None:
+                    result = escalation
+                elif procedure is None and not is_general_help:
                     result = {
                         "answer": (    "I couldn't identify an upcoming procedure linked to your "    "patient record. Please contact your care team to confirm "    "your procedure details before relying on preparation advice."),
                         "sources": [],
@@ -533,7 +763,28 @@ def openwa_webhook(request):
                         history,
                     )
 
-                    if resolved_question is not None:
+                    clarification_question = (
+                        resolved_question
+                        if resolved_question is not None
+                        else message
+                    )
+
+                    clarification = assess_clarification(
+                        clarification_question,
+                        history=history,
+                        active_protocol_id=procedure.protocol_id,
+                    )
+
+                    if clarification["required"]:
+                        result = {
+                            "answer": clarification["message"],
+                            "sources": [],
+                            "needs_clinical_team": (
+                                clarification["kind"] == "procedure_mismatch"
+                            ),
+                        }
+
+                    elif resolved_question is not None:
                         result = answer_question(
                             resolved_question,
                             protocol_id=procedure.protocol_id,
@@ -560,22 +811,16 @@ def openwa_webhook(request):
                             communication_style=communication_style,
                             requires_human=requires_human,
                         )
-                answer = result.get("answer", "")
-                if not isinstance(answer, str) or not answer.strip():
-                    answer = (
-                        "I couldn't find a reliable answer in your stored "
-                        "preparation instructions. Please check your official "
-                        "instructions or contact your clinical team."
-                    )
+                from .assistant_formatting import format_assistant_reply
 
-                sources = result.get("sources", [])
-                if sources:
-                    source = sources[0]
-                    step = source.get("step")
-                    if step and step not in answer:
-                        answer = f"{answer}\n\nPreparation step: {step}"
+                answer = format_assistant_reply(result)
 
-                send_openwa_message(sender, answer)
+                send_openwa_message(
+                    chat_id=sender,
+                    text=answer,
+                    dedupe_key=f"inbound:{message_record.message_id}:assistant_answer",
+                    purpose="assistant_answer",
+                )
 
                 # Persist the reply after OpenWA accepts the send operation.
                 try:
@@ -605,10 +850,14 @@ def openwa_webhook(request):
 
                 try:
                     send_openwa_message(
-                        sender,
-                        "I'm having trouble checking the stored preparation "
-                        "instructions right now. Please consult your official "
-                        "instructions or contact your clinical team.",
+                        chat_id=sender,
+                        text=(
+                            "I'm having trouble checking the stored preparation "
+                            "instructions right now. Please consult your official "
+                            "instructions or contact your clinical team."
+                        ),
+                        dedupe_key=f"inbound:{message_record.message_id}:assistant_fallback",
+                        purpose="assistant_fallback",
                     )
                     mark_whatsapp_message_processed(message_record)
 
@@ -664,18 +913,39 @@ def openwa_webhook(request):
         # Confirm reminder
         # --------------------------------------------------
 
+        with transaction.atomic():
+            confirmed_at = timezone.now()
+
+            updated = Reminder.objects.filter(
+                pk=reminder.pk,
+                status="sent",
+                confirmed_at__isnull=True,
+            ).update(
+                status="confirmed",
+                confirmed_at=confirmed_at,
+            )
+
+            if updated == 1:
+                message_record.confirmed_reminder = reminder
+                message_record.save(update_fields=["confirmed_reminder"])
+
+        if updated != 1:
+            logger.info(
+                "Reminder %s was no longer eligible when DONE confirmation was applied.",
+                reminder.id,
+            )
+            mark_whatsapp_message_processed(message_record)
+
+            return JsonResponse({
+                "received": True,
+                "confirmed": False,
+                "message": "No pending reminder found",
+            })
+
         reminder.status = "confirmed"
-        reminder.confirmed_at = timezone.now()
-
-        reminder.save(
-            update_fields=[
-                "status",
-                "confirmed_at",
-            ]
-        )
-
+        reminder.confirmed_at = confirmed_at
         confirmation_message = (
-            "✅ Your preparation step has been confirmed!\n\n"
+            "\u2705 Your preparation step has been confirmed!\n\n"
             "Thank you. PrepBuddy has recorded your confirmation."
         )
 
@@ -683,13 +953,13 @@ def openwa_webhook(request):
         # The reminder is already confirmed in the database.
         try:
             send_openwa_message(
-                sender,
-                confirmation_message,
+                chat_id=sender,
+                text=confirmation_message,
+                dedupe_key=f"inbound:{message_record.message_id}:done_ack",
+                purpose="done_ack",
             )
         except Exception:
-            logger.error(
-                "DONE confirmation was recorded, but its WhatsApp acknowledgement failed."
-            )
+            release_whatsapp_message_claim(message_record)
 
             return JsonResponse({
                 "received": True,
@@ -714,8 +984,170 @@ def openwa_webhook(request):
         }, status=400)
 
     except Exception:
+        # Release an unfinished inbound claim so OpenWA can safely retry.
+        release_whatsapp_message_claim(message_record)
+
         # Do not return provider/database exception text to the public caller.
         logger.exception("OpenWA webhook processing failed.")
         return JsonResponse({
             "error": "Webhook processing failed"
         }, status=500)
+
+@csrf_exempt
+def openwa_relay_send_text(request):
+    """Authenticated local relay from Render to the local OpenWA instance."""
+
+    if request.method != "POST":
+        return JsonResponse(
+            {"error": "POST request required"},
+            status=405,
+        )
+
+    proxy_token = settings.OPENWA_PROXY_TOKEN
+    if not proxy_token:
+        logger.error("OpenWA relay proxy token is not configured.")
+        return JsonResponse(
+            {"error": "Relay authentication is not configured"},
+            status=503,
+        )
+
+    received_token = request.headers.get("X-Proxy-Token", "")
+    if not hmac.compare_digest(received_token, proxy_token):
+        logger.warning("OpenWA relay rejected: invalid proxy token.")
+        return JsonResponse(
+            {"error": "Invalid relay authentication"},
+            status=401,
+        )
+
+    max_body_size = 64 * 1024
+
+    content_length = request.META.get("CONTENT_LENGTH")
+    if content_length:
+        try:
+            if int(content_length) > max_body_size:
+                return JsonResponse(
+                    {"error": "Request body too large"},
+                    status=413,
+                )
+        except ValueError:
+            return JsonResponse(
+                {"error": "Invalid Content-Length"},
+                status=400,
+            )
+
+    if request.content_type != "application/json":
+        return JsonResponse(
+            {"error": "Content-Type must be application/json"},
+            status=415,
+        )
+
+    body = request.body
+    if len(body) > max_body_size:
+        return JsonResponse(
+            {"error": "Request body too large"},
+            status=413,
+        )
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse(
+            {"error": "Invalid JSON"},
+            status=400,
+        )
+
+    if not isinstance(payload, dict) or set(payload) != {"chatId", "text"}:
+        return JsonResponse(
+            {"error": "Expected exactly chatId and text fields"},
+            status=400,
+        )
+
+    chat_id = payload["chatId"]
+    message_text = payload["text"]
+
+    if (
+        not isinstance(chat_id, str)
+        or not chat_id.strip()
+        or len(chat_id) > 256
+    ):
+        return JsonResponse(
+            {"error": "Invalid chatId"},
+            status=400,
+        )
+
+    if (
+        not isinstance(message_text, str)
+        or not message_text.strip()
+        or len(message_text) > 16000
+    ):
+        return JsonResponse(
+            {"error": "Invalid text"},
+            status=400,
+        )
+
+    idempotency_key = request.headers.get("Idempotency-Key", "")
+    try:
+        from uuid import UUID
+
+        idempotency_key = str(UUID(idempotency_key))
+    except (ValueError, AttributeError, TypeError):
+        return JsonResponse(
+            {"error": "A valid UUID Idempotency-Key is required"},
+            status=400,
+        )
+
+    api_key = settings.OPENWA_API_KEY
+    if not api_key:
+        logger.error("Local OpenWA API key is not configured.")
+        return JsonResponse(
+            {"error": "OpenWA authentication is not configured"},
+            status=503,
+        )
+
+    session_id = str(settings.OPENWA_SESSION_ID)
+    if not session_id:
+        logger.error("Local OpenWA session ID is not configured.")
+        return JsonResponse(
+            {"error": "OpenWA session is not configured"},
+            status=503,
+        )
+
+    from urllib.parse import quote
+
+    url = (
+        f"{settings.OPENWA_BASE_URL}"
+        f"/api/sessions/{quote(session_id, safe='')}"
+        f"/messages/send-text"
+    )
+
+    headers = {
+        "X-API-Key": api_key,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotency_key,
+    }
+
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json={
+                "chatId": chat_id,
+                "text": message_text,
+            },
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        logger.warning(
+            "OpenWA relay upstream request failed (%s).",
+            type(exc).__name__,
+        )
+        return JsonResponse(
+            {"error": "OpenWA temporarily unavailable"},
+            status=502,
+        )
+
+    return HttpResponse(
+        response.content,
+        status=response.status_code,
+        content_type="application/json",
+    )

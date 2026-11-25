@@ -1,0 +1,6 @@
+﻿.env
+*.key
+*.log
+*.pid
+__pycache__/
+*.py[cod]

@@ -1,0 +1,191 @@
+﻿[
+  {
+    "id": "TEMPEN001",
+    "language": "en",
+    "question": "My MRI is tomorrow. Where should I check whether I need to fast or follow any special preparation?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 74,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPEN002",
+    "language": "en",
+    "question": "I have a pacemaker. What information and documents should I give the MRI team before the scan?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPEN003",
+    "language": "en",
+    "question": "Can I wear my watch and earrings when I go for my MRI?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPEN004",
+    "language": "en",
+    "question": "I feel anxious in enclosed spaces. Should I tell someone before my MRI appointment?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 80,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPEN005",
+    "language": "en",
+    "question": "What happens while I am inside the MRI scanner, and how can I ask for help?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPEN006",
+    "language": "en",
+    "question": "I have finished my MRI. What should I follow before leaving, especially if I received sedation?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPEN007",
+    "language": "en",
+    "question": "My MRI is complete. Whom should I ask about when and how I will get my results?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI001",
+    "language": "hi",
+    "question": "मेरा एमआरआई कल है। मुझे कैसे पता चलेगा कि जांच से पहले उपवास करना है या कोई खास तैयारी करनी है?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 74,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI002",
+    "language": "hi",
+    "question": "मेरे शरीर में पेसमेकर लगा है। एमआरआई से पहले मुझे इसकी कौन सी जानकारी और दस्तावेज़ टीम को देने चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI003",
+    "language": "hi",
+    "question": "क्या मैं एमआरआई कराने जाते समय घड़ी और कान की बालियां पहन सकता हूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI004",
+    "language": "hi",
+    "question": "मुझे बंद जगहों में घबराहट होती है। क्या मुझे एमआरआई से पहले टीम को बताना चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 80,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI005",
+    "language": "hi",
+    "question": "एमआरआई मशीन के अंदर जांच के दौरान क्या होता है और जरूरत पड़ने पर मैं मदद कैसे मांग सकता हूं?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI006",
+    "language": "hi",
+    "question": "मेरा एमआरआई हो गया है। विभाग से निकलने से पहले मुझे किन निर्देशों का पालन करना चाहिए, खासकर अगर मुझे बेहोश करने की दवा दी गई थी?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHI007",
+    "language": "hi",
+    "question": "एमआरआई हो चुका है। जांच की रिपोर्ट कब और कैसे मिलेगी, यह मुझे किससे पूछना चाहिए?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG001",
+    "language": "hinglish",
+    "question": "Mera MRI kal hai. Kaise confirm karun ki scan se pehle fasting ya koi special preparation chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 74,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG002",
+    "language": "hinglish",
+    "question": "Mere body mein pacemaker hai. MRI se pehle team ko kaunsi details aur documents dene chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 75,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG003",
+    "language": "hinglish",
+    "question": "MRI ke liye jaate waqt kya main watch aur earrings pehen sakta hoon?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 79,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG004",
+    "language": "hinglish",
+    "question": "Mujhe closed spaces mein anxiety hoti hai. Kya MRI se pehle staff ko batana chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 80,
+    "expected_phase": "before",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG005",
+    "language": "hinglish",
+    "question": "MRI scanner ke andar scan ke time kya hota hai? Agar help chahiye ho toh staff ko kaise bataun?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 82,
+    "expected_phase": "during",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG006",
+    "language": "hinglish",
+    "question": "Mera MRI complete ho gaya. Department se nikalne se pehle kya instructions follow karne hain, especially agar sedation di gayi thi?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 84,
+    "expected_phase": "after",
+    "expected_action": "retrieve_step"
+  },
+  {
+    "id": "TEMPHG007",
+    "language": "hinglish",
+    "question": "MRI ho gaya hai. Results kab aur kaise milenge, ye kisse confirm karna chahiye?",
+    "expected_protocol_id": 14,
+    "expected_step_id": 85,
+    "expected_phase": "after",
+    "expected_action": "retrieve_step"
+  }
+]

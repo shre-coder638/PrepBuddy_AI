@@ -3,6 +3,8 @@ from datetime import timedelta
 
 import pytest
 from django.utils import timezone
+from django.db.models.query import QuerySet
+from unittest.mock import patch
 
 from patients.models import Patient
 from procedures.models import Procedure
@@ -266,3 +268,83 @@ def test_all_confirmed_reminders_reconcile_scheduled_procedure_to_ready(
 
     procedure.refresh_from_db()
     assert procedure.status == "ready"
+
+
+
+@pytest.mark.django_db
+def test_pending_reminder_transition_does_not_overwrite_concurrent_change(
+    setup_data,
+):
+    procedure = setup_data["procedure"]
+    procedure.scheduled_at = timezone.now() - timedelta(minutes=1)
+    procedure.save(update_fields=["scheduled_at", "updated_at"])
+
+    reminder = create_reminder(
+        procedure,
+        setup_data["critical_step"],
+        "pending",
+    )
+
+    original_update = QuerySet.update
+    competing_change_applied = False
+
+    def apply_competing_change(queryset, **kwargs):
+        nonlocal competing_change_applied
+
+        if kwargs.get("status") == "missed" and not competing_change_applied:
+            competing_change_applied = True
+            original_update(
+                Reminder.objects.filter(pk=reminder.pk),
+                status="confirmed",
+                confirmed_at=timezone.now(),
+            )
+
+        return original_update(queryset, **kwargs)
+
+    with patch.object(QuerySet, "update", new=apply_competing_change):
+        check_missed_reminders()
+
+    reminder.refresh_from_db()
+
+    assert competing_change_applied is True
+    assert reminder.status == "confirmed"
+    assert reminder.confirmed_at is not None
+    assert not hasattr(reminder, "staff_alert")
+
+@pytest.mark.django_db
+def test_done_confirmation_wins_race_with_missed_reminder_check(setup_data):
+    procedure = setup_data["procedure"]
+    reminder = create_reminder(
+        procedure,
+        setup_data["critical_step"],
+        "sent",
+        sent_at=timezone.now() - timedelta(hours=3),
+    )
+
+    original_update = QuerySet.update
+    competing_confirmation_applied = False
+
+    def apply_competing_confirmation(queryset, **kwargs):
+        nonlocal competing_confirmation_applied
+
+        if kwargs == {"status": "missed"} and not competing_confirmation_applied:
+            competing_confirmation_applied = True
+            original_update(
+                Reminder.objects.filter(pk=reminder.pk),
+                status="confirmed",
+                confirmed_at=timezone.now(),
+            )
+
+        return original_update(queryset, **kwargs)
+
+    with patch.object(QuerySet, "update", new=apply_competing_confirmation):
+        check_missed_reminders()
+
+    reminder.refresh_from_db()
+    procedure.refresh_from_db()
+
+    assert competing_confirmation_applied is True
+    assert reminder.status == "confirmed"
+    assert reminder.confirmed_at is not None
+    assert procedure.status != "attention_needed"
+    assert not hasattr(reminder, "staff_alert")

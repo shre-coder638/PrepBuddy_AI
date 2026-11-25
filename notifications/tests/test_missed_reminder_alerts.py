@@ -95,6 +95,7 @@ def test_alert_helper_creates_only_one_alert(alert_data):
 @pytest.mark.django_db
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_SEND_ENABLED=True,
     DEFAULT_FROM_EMAIL="prepbuddy-test@example.com",
 )
 def test_missed_reminder_creates_alert_and_emails_staff(alert_data):
@@ -117,6 +118,7 @@ def test_missed_reminder_creates_alert_and_emails_staff(alert_data):
 @pytest.mark.django_db
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_SEND_ENABLED=True,
     DEFAULT_FROM_EMAIL="prepbuddy-test@example.com",
 )
 def test_successful_alert_email_is_not_sent_again(alert_data):
@@ -135,6 +137,7 @@ def test_successful_alert_email_is_not_sent_again(alert_data):
 
 
 @pytest.mark.django_db
+@override_settings(EMAIL_SEND_ENABLED=True)
 def test_failed_alert_email_remains_retryable(alert_data):
     reminder = alert_data["reminder"]
     alert = _queue_missed_reminder_alert(reminder)
@@ -148,6 +151,7 @@ def test_failed_alert_email_remains_retryable(alert_data):
     alert.refresh_from_db()
     assert alert.email_sent_at is None
     assert "Simulated email failure" in alert.last_error
+    assert alert.email_claimed_at is None
 
     with patch(
         "notifications.tasks.send_mail",
@@ -159,6 +163,22 @@ def test_failed_alert_email_remains_retryable(alert_data):
     assert alert.email_sent_at is not None
     assert alert.last_error == ""
     mock_send.assert_called_once()
+
+
+@pytest.mark.django_db
+@override_settings(EMAIL_SEND_ENABLED=False)
+def test_disabled_email_delivery_leaves_alert_pending(alert_data):
+    alert = _queue_missed_reminder_alert(alert_data["reminder"])
+
+    with patch("notifications.tasks.send_mail") as mock_send:
+        _send_pending_missed_reminder_alerts()
+
+    alert.refresh_from_db()
+
+    mock_send.assert_not_called()
+    assert alert.email_sent_at is None
+    assert alert.email_claimed_at is None
+    assert alert.last_error == ""
 
 
 @pytest.mark.django_db
@@ -271,3 +291,138 @@ def test_no_doctor_phone_keeps_whatsapp_alert_pending(alert_data):
     assert alert.whatsapp_sent_at is None
     assert "No active doctors" in alert.whatsapp_last_error
     mock_send.assert_not_called()
+@pytest.mark.django_db
+def test_partial_doctor_whatsapp_success_retries_without_duplicate_sends(
+    alert_data,
+):
+    alert = _queue_missed_reminder_alert(alert_data["reminder"])
+
+    User = get_user_model()
+
+    doctor_a = User.objects.create_user(
+        username="partial_alert_doctor_a",
+    )
+    StaffProfile.objects.create(
+        user=doctor_a,
+        role="doctor",
+        phone_number="919876543211",
+    )
+
+    doctor_b = User.objects.create_user(
+        username="partial_alert_doctor_b",
+    )
+    StaffProfile.objects.create(
+        user=doctor_b,
+        role="doctor",
+        phone_number="919876543212",
+    )
+
+    attempts = {}
+    accepted_keys = set()
+    actual_sends = []
+
+    def idempotent_send(**kwargs):
+        key = kwargs["dedupe_key"]
+        chat_id = kwargs["chat_id"]
+
+        attempts[key] = attempts.get(key, 0) + 1
+
+        if key in accepted_keys:
+            return {"success": True, "cached": True}
+
+        if chat_id == "919876543212@c.us" and attempts[key] == 1:
+            raise RuntimeError("Simulated temporary failure")
+
+        accepted_keys.add(key)
+        actual_sends.append(key)
+        return {"success": True}
+
+    with patch(
+        "notifications.tasks.send_openwa_message",
+        side_effect=idempotent_send,
+    ):
+        _send_pending_missed_reminder_whatsapp_alerts()
+
+        alert.refresh_from_db()
+        assert alert.whatsapp_sent_at is None
+        assert "send failed" in alert.whatsapp_last_error
+        assert len(actual_sends) == 1
+
+        _send_pending_missed_reminder_whatsapp_alerts()
+
+    alert.refresh_from_db()
+
+    assert alert.whatsapp_sent_at is not None
+    assert alert.whatsapp_last_error == ""
+    assert len(actual_sends) == 2
+    assert len(set(actual_sends)) == 2
+    assert len(attempts) == 2
+    assert all(count == 2 for count in attempts.values())
+
+
+@pytest.mark.django_db
+@override_settings(EMAIL_SEND_ENABLED=True)
+def test_active_email_claim_prevents_duplicate_send(alert_data):
+    alert = _queue_missed_reminder_alert(alert_data["reminder"])
+    active_claim = timezone.now()
+
+    MissedReminderAlert.objects.filter(pk=alert.pk).update(
+        email_claimed_at=active_claim,
+    )
+
+    with patch("notifications.tasks.send_mail") as mock_send:
+        _send_pending_missed_reminder_alerts()
+
+    alert.refresh_from_db()
+
+    mock_send.assert_not_called()
+    assert alert.email_sent_at is None
+    assert alert.email_claimed_at == active_claim
+
+
+@pytest.mark.django_db
+@override_settings(EMAIL_SEND_ENABLED=True)
+def test_expired_email_claim_is_recovered(alert_data):
+    alert = _queue_missed_reminder_alert(alert_data["reminder"])
+
+    MissedReminderAlert.objects.filter(pk=alert.pk).update(
+        email_claimed_at=timezone.now() - timedelta(minutes=6),
+    )
+
+    with patch(
+        "notifications.tasks.send_mail",
+        return_value=1,
+    ) as mock_send:
+        _send_pending_missed_reminder_alerts()
+
+    alert.refresh_from_db()
+
+    mock_send.assert_called_once()
+    assert alert.email_sent_at is not None
+    assert alert.email_claimed_at is None
+    assert alert.last_error == ""
+
+
+@pytest.mark.django_db
+@override_settings(EMAIL_SEND_ENABLED=True)
+def test_stale_email_claim_cannot_mark_alert_as_sent(alert_data):
+    alert = _queue_missed_reminder_alert(alert_data["reminder"])
+    replacement_claim = timezone.now() + timedelta(seconds=1)
+
+    def replace_claim_before_send_returns(*args, **kwargs):
+        MissedReminderAlert.objects.filter(pk=alert.pk).update(
+            email_claimed_at=replacement_claim,
+        )
+        return 1
+
+    with patch(
+        "notifications.tasks.send_mail",
+        side_effect=replace_claim_before_send_returns,
+    ) as mock_send:
+        _send_pending_missed_reminder_alerts()
+
+    alert.refresh_from_db()
+
+    mock_send.assert_called_once()
+    assert alert.email_sent_at is None
+    assert alert.email_claimed_at == replacement_claim

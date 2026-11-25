@@ -1,0 +1,23 @@
+{
+  "TEMPEN001": null,
+  "TEMPEN002": null,
+  "TEMPEN003": null,
+  "TEMPEN004": null,
+  "TEMPEN005": "during_scan",
+  "TEMPEN006": "post_scan_discharge",
+  "TEMPEN007": "results_followup",
+  "TEMPHI001": null,
+  "TEMPHI002": null,
+  "TEMPHI003": null,
+  "TEMPHI004": null,
+  "TEMPHI005": "during_scan",
+  "TEMPHI006": "post_scan_discharge",
+  "TEMPHI007": "results_followup",
+  "TEMPHG001": null,
+  "TEMPHG002": null,
+  "TEMPHG003": null,
+  "TEMPHG004": null,
+  "TEMPHG005": "during_scan",
+  "TEMPHG006": "post_scan_discharge",
+  "TEMPHG007": "results_followup"
+}
