@@ -1,6 +1,7 @@
 """HTTPS transport for the isolated ANN inference service."""
 
 import json
+import logging
 import re
 import time
 from urllib.parse import urlsplit
@@ -21,6 +22,8 @@ READ_TIMEOUT = 25
 RESPONSE_BUDGET_SECONDS = 30
 
 MAX_RESPONSE_BYTES = 131072
+
+logger = logging.getLogger(__name__)
 
 
 class RemoteANNError(Exception):
@@ -132,6 +135,10 @@ def _post_remote_ann(url, token, body):
             ) as result:
 
                 if result.status_code != 200:
+                    logger.warning(
+                        "ANN upstream HTTP status: %d",
+                        result.status_code,
+                    )
                     raise RemoteANNError(
                         "Inference service unavailable."
                     )
@@ -191,7 +198,11 @@ def _post_remote_ann(url, token, body):
         ValueError,
         UnicodeError,
         RecursionError,
-    ):
+    ) as exc:
+        logger.warning(
+            "ANN transport failure: %s",
+            type(exc).__name__,
+        )
         raise RemoteANNError(
             "Remote inference failed."
         ) from None

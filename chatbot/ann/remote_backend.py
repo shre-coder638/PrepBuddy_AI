@@ -329,9 +329,29 @@ def answer_remote_ann(
 
     except Exception as exc:
         # Never log question content or service credentials.
+        safe_reasons = {
+            "Missing inference endpoint.",
+            "Invalid inference endpoint.",
+            "Invalid inference credential.",
+            "Invalid inference request.",
+            "Inference request too large.",
+            "Inference service unavailable.",
+            "Invalid inference content type.",
+            "Inference response timed out.",
+            "Inference response too large.",
+            "Invalid inference response.",
+            "Remote inference failed.",
+            "Invalid scoped inference request.",
+            "Scoped inference request too large.",
+        }
+
+        reason = str(exc)
+
         logger.warning(
-            "Remote ANN backend failed safely: %s",
+            "Remote ANN backend failed safely: %s | %s",
             type(exc).__name__,
+            reason if reason in safe_reasons
+            else "Other validation failure",
         )
 
         return fallback()
