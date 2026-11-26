@@ -90,6 +90,43 @@ def upstream(method, url, headers, body=None,
             return response.status_code, bytes(result)
 
 
+def valid_send_acceptance(status, data):
+    """Validate OpenWA acceptance without claiming recipient delivery."""
+
+    if not 200 <= status < 300:
+        return False
+
+    if not isinstance(data, dict):
+        return False
+
+    message_id = data.get("messageId")
+
+    if (
+        not isinstance(message_id, str)
+        or not message_id.strip()
+        or len(message_id) > 255
+        or data.get("success") is False
+        or data.get("sent") is False
+    ):
+        return False
+
+    # Native OpenWA MessageResponseDto.
+    native_acceptance = (
+        status == 201
+        and set(data) == {"messageId", "timestamp"}
+        and type(data.get("timestamp")) is int
+        and data["timestamp"] > 0
+    )
+
+    # Preserve compatibility with explicit acceptance responses.
+    explicit_acceptance = (
+        data.get("success") is True
+        or data.get("sent") is True
+    )
+
+    return native_acceptance or explicit_acceptance
+
+
 def create_app(*, ann_token, proxy_token, openwa_key,
                session_id, allowed_phone, allow_send=False):
 
@@ -293,17 +330,7 @@ def create_app(*, ann_token, proxy_token, openwa_key,
 
         data = decode_json(result)
 
-        if (
-            not isinstance(data, dict)
-            or data.get("success") is False
-            or data.get("sent") is False
-            or not (
-                data.get("success") is True
-                or data.get("sent") is True
-            )
-            or not isinstance(data.get("messageId"), str)
-            or not data["messageId"].strip()
-        ):
+        if not valid_send_acceptance(status, data):
             raise Reject(502, "Send acceptance uncertain.")
 
         return 200, json.dumps({

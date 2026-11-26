@@ -1371,3 +1371,104 @@ def test_missed_transition_wins_race_with_done_confirmation(
     assert message_record.confirmed_reminder_id is None
     assert message_record.is_processed is True
     mock_send.assert_not_called()
+
+
+@pytest.mark.django_db
+@patch("notifications.views.answer_question")
+@patch("notifications.views.send_openwa_message")
+@patch("notifications.views.requests.get")
+def test_ambiguous_assistant_send_does_not_send_second_reply(
+    mock_get,
+    mock_send,
+    mock_answer,
+    webhook_client,
+    setup_data,
+):
+    from notifications.whatsapp import WhatsAppOutboundError
+
+    mock_get.return_value = Mock(status_code=200)
+    mock_get.return_value.json.return_value = {
+        "phone": "910000000001",
+    }
+
+    mock_answer.return_value = {
+        "answer": "Read the synthetic preparation notice.",
+        "sources": [],
+        "needs_clinical_team": False,
+    }
+
+    activation = post_event(
+        webhook_client,
+        "message.received",
+        {
+            "id": "ambiguous-send-activation",
+            "from": "910000000001@c.us",
+            "body": "TALK TO ASSISTANT",
+        },
+    )
+
+    assert activation.status_code == 200
+
+    mock_send.reset_mock()
+
+    mock_send.side_effect = WhatsAppOutboundError(
+        "OpenWA returned an ambiguous HTTP status (502)."
+    )
+
+    event = {
+        "id": "ambiguous-send-question",
+        "from": "910000000001@c.us",
+        "body": "How do I prepare for my procedure?",
+    }
+
+    response = post_event(
+        webhook_client,
+        "message.received",
+        event,
+    )
+
+    assert response.status_code == 503
+    assert response.json()["delivery_uncertain"] is True
+    assert response.json()["fallback"] is False
+
+    # No second outbound message may be attempted.
+    assert mock_send.call_count == 1
+
+    original_key = mock_send.call_args.kwargs["dedupe_key"]
+
+    assert original_key == (
+        "inbound:ambiguous-send-question:assistant_answer"
+    )
+
+    record = ProcessedWhatsAppMessage.objects.get(
+        message_id=event["id"]
+    )
+
+    assert record.is_processed is False
+    assert record.processing_started_at is None
+
+    # A webhook retry must reuse the original outbound key.
+    mock_send.reset_mock()
+    mock_send.side_effect = None
+    mock_send.return_value = {
+        "success": True,
+        "messageId": "synthetic-accepted-message",
+    }
+
+    retry = post_event(
+        webhook_client,
+        "message.received",
+        event,
+    )
+
+    assert retry.status_code == 200
+    assert retry.json()["answered"] is True
+    assert mock_send.call_count == 1
+
+    assert (
+        mock_send.call_args.kwargs["dedupe_key"]
+        == original_key
+    )
+
+    record.refresh_from_db()
+    assert record.is_processed is True

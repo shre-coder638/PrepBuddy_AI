@@ -730,6 +730,7 @@ def openwa_webhook(request):
                 or "what do you do" in normalized_for_help
             )
 
+            reply_send_started = False
             try:
                 procedure = (
                     Procedure.objects
@@ -850,6 +851,8 @@ def openwa_webhook(request):
 
                 answer = format_assistant_reply(result)
 
+                reply_send_started = True
+
                 send_openwa_message(
                     chat_id=sender,
                     text=answer,
@@ -882,6 +885,18 @@ def openwa_webhook(request):
 
             except Exception:
                 logger.exception("Inbound WhatsApp question processing failed.")
+
+                if reply_send_started:
+                    # Delivery may already have occurred. Never send a
+                    # second message with a different deduplication key.
+                    release_whatsapp_message_claim(message_record)
+
+                    return JsonResponse({
+                        "received": True,
+                        "answered": False,
+                        "delivery_uncertain": True,
+                        "fallback": False,
+                    }, status=503)
 
                 try:
                     send_openwa_message(
