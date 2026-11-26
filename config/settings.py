@@ -328,7 +328,9 @@ if STAGING_MODE:
             "named prepbuddy_ann_staging."
         )
 
-    CHATBOT_BACKEND = "ann"
+    if CHATBOT_BACKEND != "remote_ann":
+        CHATBOT_BACKEND = "ann"
+
     ANN_RECORD_EXPERIENCES = False
     WHATSAPP_SEND_ENABLED = False
     EMAIL_SEND_ENABLED = False
@@ -351,3 +353,101 @@ if STAGING_MODE:
         middleware for middleware in MIDDLEWARE
         if middleware != "django.middleware.security.SecurityMiddleware"
     ]
+
+
+# Hybrid ANN service configuration
+REMOTE_ANN_URL = os.getenv("REMOTE_ANN_URL", "").strip()
+ANN_SERVICE_TOKEN = os.getenv("ANN_SERVICE_TOKEN", "")
+
+
+# Strict TLS for laptop-to-cloud staging connections.
+STAGING_EXTERNAL_CONNECTIONS = (
+    os.getenv(
+        "STAGING_EXTERNAL_CONNECTIONS",
+        "False",
+    ).strip().lower() == "true"
+)
+
+if STAGING_EXTERNAL_CONNECTIONS:
+
+    import ssl
+    import certifi
+
+    from urllib.parse import urlsplit, unquote
+    from django.core.exceptions import ImproperlyConfigured
+
+    if not STAGING_MODE:
+        raise ImproperlyConfigured(
+            "External staging connections require staging mode."
+        )
+
+    _external_pg_url = os.getenv("DATABASE_URL", "")
+    _external_redis_url = os.getenv("REDIS_URL", "")
+
+    _pg = urlsplit(_external_pg_url)
+    _redis = urlsplit(_external_redis_url)
+
+    if not (
+        _pg.scheme in ("postgres", "postgresql")
+        and _pg.hostname
+        and _pg.hostname.endswith(".render.com")
+        and _pg.username
+        and _pg.password
+        and unquote(_pg.path.lstrip("/"))
+            == "prepbuddy_ann_staging"
+        and not _pg.query
+        and not _pg.fragment
+    ):
+        raise ImproperlyConfigured(
+            "Invalid external staging database configuration."
+        )
+
+    if not (
+        _redis.scheme == "rediss"
+        and _redis.hostname
+        and _redis.hostname.endswith(".render.com")
+        and _redis.password
+        and _redis.path in ("", "/", "/0")
+        and not _redis.query
+        and not _redis.fragment
+    ):
+        raise ImproperlyConfigured(
+            "Invalid external staging broker configuration."
+        )
+
+    if (
+        DATABASES["default"]["ENGINE"]
+            != "django.db.backends.postgresql"
+        or DATABASES["default"]["NAME"]
+            != "prepbuddy_ann_staging"
+        or DATABASES["default"]["HOST"]
+            != _pg.hostname
+    ):
+        raise ImproperlyConfigured(
+            "External staging database isolation check failed."
+        )
+
+    DATABASES["default"].setdefault(
+        "OPTIONS", {}
+    ).update({
+        "sslmode": "verify-full",
+        "sslrootcert": certifi.where(),
+        "connect_timeout": 15,
+    })
+
+    CELERY_BROKER_URL = _external_redis_url
+    CELERY_RESULT_BACKEND = _external_redis_url
+
+    CELERY_BROKER_USE_SSL = {
+        "ssl_cert_reqs": ssl.CERT_REQUIRED,
+        "ssl_check_hostname": True,
+        "ssl_ca_certs": certifi.where(),
+    }
+
+    CELERY_REDIS_BACKEND_USE_SSL = (
+        CELERY_BROKER_USE_SSL.copy()
+    )
+
+    CELERY_BROKER_CONNECTION_TIMEOUT = 15
+    CELERY_REDIS_SOCKET_CONNECT_TIMEOUT = 15
+    CELERY_REDIS_SOCKET_TIMEOUT = 15

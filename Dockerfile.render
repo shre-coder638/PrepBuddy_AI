@@ -1,0 +1,45 @@
+# Stage 1: Build the React frontend
+FROM node:22-bookworm-slim AS frontend-build
+
+WORKDIR /app/frontend-ui
+
+COPY frontend-ui/package.json frontend-ui/package-lock.json ./
+RUN npm ci
+
+COPY frontend-ui/ ./
+RUN npm run build
+
+
+# Stage 2: Lightweight cloud runtime
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV DJANGO_SETTINGS_MODULE=config.settings
+
+WORKDIR /app
+
+# Install application dependencies only.
+COPY requirements.txt /app/requirements.txt
+
+RUN python -m pip install --upgrade pip \
+    && python -m pip install -r /app/requirements.txt \
+    && python -m pip check
+
+# Delegate neural inference to the isolated local service.
+ENV CHATBOT_BACKEND=remote_ann
+ENV ANN_RECORD_EXPERIENCES=False
+ENV WHATSAPP_SEND_ENABLED=False
+ENV EMAIL_SEND_ENABLED=False
+
+COPY . /app
+
+COPY --from=frontend-build /app/static/react/ /app/static/react/
+
+RUN SECRET_KEY=build-only-placeholder \
+    python manage.py collectstatic --noinput
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 1 --threads 2 --timeout 120"]

@@ -3,15 +3,14 @@ services:
     name: prepbuddy-ann-staging
     runtime: docker
     region: singapore
-    plan: 1c-2g
+    plan: free
     branch: feature/option-b-ann
     autoDeployTrigger: "off"
 
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: ./Dockerfile.render
     dockerContext: .
 
     healthCheckPath: /healthz/
-    preDeployCommand: python manage.py migrate --noinput
 
     envVars:
       - key: SECRET_KEY
@@ -22,6 +21,18 @@ services:
 
       - key: DATABASE_URL
         sync: false
+
+      - key: REDIS_URL
+        sync: false
+
+      - key: REMOTE_ANN_URL
+        sync: false
+
+      - key: ANN_SERVICE_TOKEN
+        sync: false
+
+      - key: STAGING_EXTERNAL_CONNECTIONS
+        value: "False"
 
       - key: ALLOWED_HOSTS
         fromService:
@@ -45,7 +56,7 @@ services:
         value: "True"
 
       - key: CHATBOT_BACKEND
-        value: ann
+        value: remote_ann
 
       - key: ANN_RECORD_EXPERIENCES
         value: "False"
@@ -56,20 +67,10 @@ services:
       - key: WHATSAPP_SEND_ENABLED
         value: "False"
 
-      - key: HF_HUB_OFFLINE
-        value: "1"
 
-      - key: TRANSFORMERS_OFFLINE
-        value: "1"
 
-      - key: OMP_NUM_THREADS
-        value: "1"
 
-      - key: MKL_NUM_THREADS
-        value: "1"
 
-      - key: TOKENIZERS_PARALLELISM
-        value: "false"
 
       - key: SECURE_SSL_REDIRECT
         value: "True"

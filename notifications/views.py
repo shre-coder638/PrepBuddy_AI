@@ -735,7 +735,7 @@ def openwa_webhook(request):
                         assistant_settings,
                         "CHATBOT_BACKEND",
                         "rag",
-                    ) == "ann"
+                    ) in ("ann", "remote_ann")
                 ):
                     from chatbot.ann.multilingual_safety import (
                         multilingual_safety_response,

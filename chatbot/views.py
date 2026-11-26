@@ -89,7 +89,19 @@ def chatbot_api(request):
 def answer_question(question, protocol_id=None, communication_style="neutral", requires_human=False):
     """Return a safe, source-grounded preparation answer."""
 
-    if getattr(settings, "CHATBOT_BACKEND", "rag") != "rag":
+    backend = getattr(settings, "CHATBOT_BACKEND", "rag")
+
+    if backend == "remote_ann":
+        from .ann.remote_backend import answer_remote_ann
+
+        return answer_remote_ann(
+            question,
+            protocol_id=protocol_id,
+            communication_style=communication_style,
+            requires_human=requires_human,
+        )
+
+    if backend != "rag":
 
         from .ann.backend import answer_configured_ann
 
