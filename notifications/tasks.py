@@ -90,14 +90,33 @@ def _update_claimed_reminder(reminder, **updates):
 
 
 @shared_task
-def process_due_reminders():
+def process_due_reminders(*, batch_size=None):
+
+    if (
+        getattr(settings, "STAGING_MODE", False)
+        and batch_size is None
+    ):
+        logger.warning("Legacy scheduler disabled in staging.")
+        return
+
+    if batch_size is not None and (
+        type(batch_size) is not int
+        or not 1 <= batch_size <= 10
+    ):
+        raise ValueError("Invalid reminder batch size")
+
+    if not getattr(settings, "WHATSAPP_SEND_ENABLED", False):
+        logger.info("Scheduled WhatsApp reminder delivery is disabled.")
+        return
+
     now = timezone.now()
 
     stale_cutoff = now - timedelta(hours=2)
 
-    due_ids = list(
+    due_query = (
         Reminder.objects.filter(
             status="pending",
+            delivery_attempts__lt=MAX_DELIVERY_ATTEMPTS,
             scheduled_at__lte=now,
             scheduled_at__gte=stale_cutoff,
             procedure__scheduled_at__gt=now,
@@ -112,6 +131,11 @@ def process_due_reminders():
         .order_by("id")
         .values_list("id", flat=True)
     )
+
+    if batch_size is not None:
+        due_query = due_query[:batch_size]
+
+    due_ids = list(due_query)
 
     for reminder_id in due_ids:
         reminder = _claim_reminder(reminder_id, timezone.now())
@@ -219,6 +243,28 @@ def _schedule_retry(reminder):
         )
 
     return True
+
+def _mark_procedure_attention_needed(procedure):
+    """Preserve terminal procedure states during reconciliation."""
+
+    updated = Procedure.objects.filter(
+        pk=procedure.pk,
+    ).exclude(
+        status__in=[
+            "cancelled",
+            "completed",
+            "attention_needed",
+        ],
+    ).update(
+        status="attention_needed",
+        updated_at=timezone.now(),
+    )
+
+    if updated:
+        procedure.status = "attention_needed"
+
+    return updated == 1
+
 
 def _queue_missed_reminder_alert(reminder):
     """Create one persistent staff alert per missed reminder."""
@@ -388,29 +434,122 @@ def _send_pending_missed_reminder_alerts():
             )
 
 
-def _send_pending_missed_reminder_whatsapp_alerts():
-    """Send pending missed-reminder alerts to active doctors."""
+def _save_whatsapp_alert_result(alert, fields, claim_until):
+    """Persist an alert result only while its claim is owned."""
+
+    if claim_until is None:
+        alert.save(update_fields=fields)
+        return True
+
+    updated = MissedReminderAlert.objects.filter(
+        pk=alert.pk,
+        whatsapp_sent_at__isnull=True,
+        whatsapp_next_attempt_at=claim_until,
+    ).update(
+        **{
+            field: getattr(alert, field)
+            for field in fields
+        }
+    )
+
+    if updated != 1:
+        logger.warning(
+            "WhatsApp alert %s claim ownership lost.",
+            alert.pk,
+        )
+
+    return updated == 1
+
+
+def _send_pending_missed_reminder_whatsapp_alerts(
+    *, batch_size=None
+):
+    """Send pending doctor alerts with optional bounded retries."""
+
+    if (
+        getattr(settings, "STAGING_MODE", False)
+        and batch_size is None
+    ):
+        logger.warning("Legacy scheduler disabled in staging.")
+        return
+
+    if batch_size is not None and (
+        type(batch_size) is not int
+        or not 1 <= batch_size <= 10
+    ):
+        raise ValueError("Invalid WhatsApp alert batch size")
+
+    if not getattr(settings, "WHATSAPP_SEND_ENABLED", False):
+        logger.info("Missed reminder WhatsApp alert delivery is disabled.")
+        return
+
     alerts = MissedReminderAlert.objects.filter(
         whatsapp_sent_at__isnull=True,
     ).select_related(
         "reminder__procedure",
     )
 
-    doctors = list(
-        StaffProfile.objects.filter(
-            role="doctor",
-            user__is_active=True,
-        ).exclude(
-            phone_number="",
-        )
+    doctor_query = StaffProfile.objects.filter(
+        role="doctor",
+        user__is_active=True,
+    ).exclude(
+        phone_number="",
     )
 
+    if batch_size is not None:
+        now = timezone.now()
+
+        alerts = (
+            alerts.filter(
+                models.Q(whatsapp_next_attempt_at__isnull=True)
+                | models.Q(whatsapp_next_attempt_at__lte=now)
+            )
+            .order_by("pk")[:batch_size]
+        )
+
+        doctors = list(doctor_query.order_by("pk")[:3])
+
+        if len(doctors) > 2:
+            logger.warning(
+                "Bounded doctor alert delivery requires "
+                "at most two configured recipients."
+            )
+            return
+    else:
+        doctors = list(doctor_query)
+
     for alert in alerts:
+        claim_until = None
+
+        if batch_size is not None:
+            claim_time = timezone.now()
+            claim_until = claim_time + timedelta(minutes=5)
+
+            claimed = MissedReminderAlert.objects.filter(
+                pk=alert.pk,
+                whatsapp_sent_at__isnull=True,
+            ).filter(
+                models.Q(whatsapp_next_attempt_at__isnull=True)
+                | models.Q(
+                    whatsapp_next_attempt_at__lte=claim_time
+                )
+            ).update(
+                whatsapp_next_attempt_at=claim_until,
+            )
+
+            if claimed != 1:
+                continue
+
         if not doctors:
             alert.whatsapp_last_error = (
                 "No active doctors with phone numbers are configured."
             )
-            alert.save(update_fields=["whatsapp_last_error"])
+            if not _save_whatsapp_alert_result(
+                alert,
+                ["whatsapp_last_error"],
+                claim_until,
+            ):
+                continue
             logger.warning(
                 "No WhatsApp doctor recipients for missed reminder %s.",
                 alert.reminder_id,
@@ -482,7 +621,12 @@ def _send_pending_missed_reminder_whatsapp_alerts():
 
         if errors:
             alert.whatsapp_last_error = "; ".join(errors)[:2000]
-            alert.save(update_fields=["whatsapp_last_error"])
+            if not _save_whatsapp_alert_result(
+                alert,
+                ["whatsapp_last_error"],
+                claim_until,
+            ):
+                continue
             logger.warning(
                 "WhatsApp alert for reminder %s remains pending.",
                 reminder.id,
@@ -490,12 +634,17 @@ def _send_pending_missed_reminder_whatsapp_alerts():
         else:
             alert.whatsapp_sent_at = timezone.now()
             alert.whatsapp_last_error = ""
-            alert.save(
-                update_fields=[
+            alert.whatsapp_next_attempt_at = None
+            if not _save_whatsapp_alert_result(
+                alert,
+                [
                     "whatsapp_sent_at",
                     "whatsapp_last_error",
-                ]
-            )
+                    "whatsapp_next_attempt_at",
+                ],
+                claim_until,
+            ):
+                continue
             logger.info(
                 "OpenWA accepted doctor alert for missed reminder %s. "
                 "Actual recipient delivery is not confirmed.",
@@ -503,7 +652,26 @@ def _send_pending_missed_reminder_whatsapp_alerts():
             )
 
 @shared_task
-def check_missed_reminders():
+def check_missed_reminders(*, batch_size=None):
+    """Reconcile missed reminders and preparation progress.
+
+    Bounded execution performs database operations only.
+    Unbounded legacy execution also retries external alerts.
+    """
+
+    if (
+        getattr(settings, "STAGING_MODE", False)
+        and batch_size is None
+    ):
+        logger.warning("Legacy scheduler disabled in staging.")
+        return
+
+    if batch_size is not None and (
+        type(batch_size) is not int
+        or not 1 <= batch_size <= 50
+    ):
+        raise ValueError("Invalid missed-reminder batch size")
+
     now = timezone.now()
     cutoff = now - timedelta(hours=2)
 
@@ -514,31 +682,34 @@ def check_missed_reminders():
         sent_at__lte=cutoff,
     ).select_related("prep_step", "procedure")
 
+    if batch_size is not None:
+        reminders = reminders.order_by("pk")[:batch_size]
+
     for reminder in reminders:
-        updated = Reminder.objects.filter(
-            pk=reminder.pk,
-            status="sent",
-            confirmed_at__isnull=True,
-            sent_at__lte=cutoff,
-        ).update(status="missed")
+        with transaction.atomic():
+            updated = Reminder.objects.filter(
+                pk=reminder.pk,
+                status="sent",
+                confirmed_at__isnull=True,
+                sent_at__lte=cutoff,
+            ).update(status="missed")
 
-        if updated != 1:
-            continue
+            if updated != 1:
+                continue
 
-        reminder.status = "missed"
-        _queue_missed_reminder_alert(reminder)
+            reminder.status = "missed"
+            _queue_missed_reminder_alert(reminder)
 
-        if reminder.prep_step.is_critical:
-            procedure = reminder.procedure
+            if reminder.prep_step.is_critical:
+                procedure = reminder.procedure
 
-            if procedure.status not in ["cancelled", "completed"]:
-                procedure.status = "attention_needed"
-                procedure.save(update_fields=["status", "updated_at"])
+                if procedure.status not in ["cancelled", "completed"]:
+                    _mark_procedure_attention_needed(procedure)
 
-                logger.warning(
-                    "A critical preparation reminder was missed; procedure %s requires attention.",
-                    procedure.id,
-                )
+                    logger.warning(
+                        "A critical preparation reminder was missed; procedure %s requires attention.",
+                        procedure.id,
+                    )
 
     # Mark overdue pending reminders as missed once the procedure
     # itself has started or passed. Do not process reminders for
@@ -551,41 +722,44 @@ def check_missed_reminders():
         procedure__status__in=["cancelled", "completed"]
     ).select_related("prep_step", "procedure")
 
-    for reminder in overdue_pending:
-        updated = Reminder.objects.filter(
-            pk=reminder.pk,
-            status="pending",
-            scheduled_at__lte=now,
-            procedure__scheduled_at__lte=now,
-        ).exclude(
-            procedure__status__in=["cancelled", "completed"]
-        ).update(
-            status="missed",
-            next_attempt_at=None,
+    if batch_size is not None:
+        overdue_pending = (
+            overdue_pending.order_by("pk")[:batch_size]
         )
 
-        if updated != 1:
-            continue
-
-        reminder.status = "missed"
-        reminder.next_attempt_at = None
-        _queue_missed_reminder_alert(reminder)
-
-        if reminder.prep_step.is_critical:
-            procedure = reminder.procedure
-
-            if procedure.status != "attention_needed":
-                procedure.status = "attention_needed"
-                procedure.save(
-                    update_fields=["status", "updated_at"]
-                )
-
-            logger.warning(
-                "Critical pending reminder %s became overdue. "
-                "Procedure %s requires attention.",
-                reminder.id,
-                procedure.id,
+    for reminder in overdue_pending:
+        with transaction.atomic():
+            updated = Reminder.objects.filter(
+                pk=reminder.pk,
+                status="pending",
+                scheduled_at__lte=now,
+                procedure__scheduled_at__lte=now,
+            ).exclude(
+                procedure__status__in=["cancelled", "completed"]
+            ).update(
+                status="missed",
+                next_attempt_at=None,
             )
+
+            if updated != 1:
+                continue
+
+            reminder.status = "missed"
+            reminder.next_attempt_at = None
+            _queue_missed_reminder_alert(reminder)
+
+            if reminder.prep_step.is_critical:
+                procedure = reminder.procedure
+
+                if procedure.status != "attention_needed":
+                    _mark_procedure_attention_needed(procedure)
+
+                logger.warning(
+                    "Critical pending reminder %s became overdue. "
+                    "Procedure %s requires attention.",
+                    reminder.id,
+                    procedure.id,
+                )
 
     # Reconcile existing missed critical reminders as well.
     # This also catches a procedure incorrectly changed back to "ready".
@@ -602,10 +776,16 @@ def check_missed_reminders():
         id__in=affected_procedure_ids,
     ).exclude(status__in=["cancelled", "completed"])
 
+    if batch_size is not None:
+        affected_procedures = (
+            affected_procedures
+            .exclude(status="attention_needed")
+            .order_by("pk")[:batch_size]
+        )
+
     for procedure in affected_procedures:
         if procedure.status != "attention_needed":
-            procedure.status = "attention_needed"
-            procedure.save(update_fields=["status", "updated_at"])
+            _mark_procedure_attention_needed(procedure)
 
     # Reconcile preparation progress for procedures that still
     # have an eligible status. Preserve terminal and attention states.
@@ -615,14 +795,54 @@ def check_missed_reminders():
         reminders__isnull=False,
     ).distinct()
 
+    if batch_size is not None:
+        procedure_reminders = Reminder.objects.filter(
+            procedure_id=models.OuterRef("pk"),
+        )
+
+        eligible_procedures = (
+            eligible_procedures.annotate(
+                has_unconfirmed=models.Exists(
+                    procedure_reminders.exclude(
+                        status="confirmed",
+                    )
+                ),
+                has_missed_critical=models.Exists(
+                    procedure_reminders.filter(
+                        status="missed",
+                        prep_step__is_critical=True,
+                    )
+                ),
+            )
+            .filter(
+                models.Q(has_missed_critical=True)
+                | (
+                    models.Q(
+                        has_missed_critical=False,
+                        has_unconfirmed=True,
+                    )
+                    & ~models.Q(status="prep_in_progress")
+                )
+                | (
+                    models.Q(
+                        has_missed_critical=False,
+                        has_unconfirmed=False,
+                    )
+                    & ~models.Q(status="ready")
+                )
+            )
+            .order_by("pk")[:batch_size]
+        )
+
     for procedure in eligible_procedures:
         sync_procedure_status(procedure)
 
-    # Retry pending staff email alerts.
-    _send_pending_missed_reminder_alerts()
-
-    # Retry pending doctor WhatsApp alerts.
-    _send_pending_missed_reminder_whatsapp_alerts()
+    # Legacy Celery execution retains notification delivery.
+    # Bounded HTTPS reconciliation must not perform unbounded
+    # external network operations.
+    if batch_size is None:
+        _send_pending_missed_reminder_alerts()
+        _send_pending_missed_reminder_whatsapp_alerts()
 
 @shared_task
 def process_single_test_reminder(reminder_id):

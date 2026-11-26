@@ -35,12 +35,17 @@ def answer_with_ann(
     requires_human=False,
     history=None,
     trace=None,
+    *,
+    corpus_records=None,
 ):
     """
     Run the protocol-scoped ANN preparation assistant.
 
     Return stored instructions only when authorized by the
     evidence selection safeguards. Otherwise, abstain.
+
+    When corpus_records is supplied, retrieval and overview
+    generation use only those records without database access.
     """
     if trace is None:
         trace = {}
@@ -132,11 +137,18 @@ def answer_with_ann(
             ),
         }
 
+    corpus_kwargs = (
+        {}
+        if corpus_records is None
+        else {"corpus_records": corpus_records}
+    )
+
     if is_preparation_overview(question):
         try:
             overview = build_protocol_overview(
                 protocol_id,
                 communication_style=communication_style,
+                **corpus_kwargs,
             )
 
             if overview is None:
@@ -164,6 +176,7 @@ def answer_with_ann(
             question,
             protocol_id=protocol_id,
             limit=10,
+            **corpus_kwargs,
         )
 
         trace["retrieved_step_ids"] = list(dict.fromkeys(

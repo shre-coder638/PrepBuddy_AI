@@ -451,3 +451,76 @@ if STAGING_EXTERNAL_CONNECTIONS:
     CELERY_BROKER_CONNECTION_TIMEOUT = 15
     CELERY_REDIS_SOCKET_CONNECT_TIMEOUT = 15
     CELERY_REDIS_SOCKET_TIMEOUT = 15
+
+
+
+# Restricted HTTPS scheduler (disabled by default).
+HTTPS_SCHEDULER_ENABLED = (
+    os.getenv("HTTPS_SCHEDULER_ENABLED", "False")
+    .strip().lower() == "true"
+)
+
+HTTPS_SCHEDULER_TOKEN = os.getenv(
+    "HTTPS_SCHEDULER_TOKEN", ""
+)
+
+
+
+HTTPS_SCHEDULER_RECONCILE_ENABLED = (
+    os.getenv("HTTPS_SCHEDULER_RECONCILE_ENABLED", "False")
+    .strip().lower() == "true"
+)
+
+
+
+HTTPS_SCHEDULER_DELIVERY_ENABLED = (
+    os.getenv("HTTPS_SCHEDULER_DELIVERY_ENABLED", "False")
+    .strip().lower() == "true"
+)
+
+
+
+OPENWA_CONTACT_RELAY_URL = os.getenv(
+    "OPENWA_CONTACT_RELAY_URL", ""
+).strip()
+
+
+
+STAGING_OPENWA_WEBHOOK_ENABLED = (
+    os.getenv("STAGING_OPENWA_WEBHOOK_ENABLED", "False")
+    .strip().lower() == "true"
+)
+
+
+
+STAGING_WHATSAPP_DEMO_ENABLED = (
+    os.getenv("STAGING_WHATSAPP_DEMO_ENABLED", "False")
+    .strip().lower() == "true"
+)
+
+DEMO_ALLOWED_PHONE = os.getenv(
+    "DEMO_ALLOWED_PHONE", ""
+).strip()
+
+if STAGING_WHATSAPP_DEMO_ENABLED:
+    from config.demo_delivery import validate_demo_delivery
+
+    validate_demo_delivery(
+        staging=STAGING_MODE,
+        backend=CHATBOT_BACKEND,
+        phone=DEMO_ALLOWED_PHONE,
+        ann_url=REMOTE_ANN_URL,
+        send_url=OPENWA_RELAY_URL,
+        contact_url=OPENWA_CONTACT_RELAY_URL,
+        tokens=(
+            ANN_SERVICE_TOKEN,
+            OPENWA_PROXY_TOKEN,
+            OPENWA_WEBHOOK_SECRET,
+            STAGING_ACCESS_TOKEN,
+            HTTPS_SCHEDULER_TOKEN,
+        ),
+    )
+
+    WHATSAPP_SEND_ENABLED = True
+    EMAIL_SEND_ENABLED = False
+    ANN_RECORD_EXPERIENCES = False

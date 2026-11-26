@@ -444,20 +444,29 @@ def openwa_webhook(request):
             "X-API-Key": settings.OPENWA_API_KEY,
         }
 
+        from .contact_relay import ContactNotAuthorized
+
         try:
-            phone_response = requests.get(
-                phone_url,
-                headers=headers,
-                timeout=15,
-            )
+            if getattr(
+                settings, "OPENWA_CONTACT_RELAY_URL", ""
+            ):
+                from .contact_relay import resolve_contact_via_relay
 
-            logger.info(
-                "OpenWA contact lookup completed with HTTP %s.",
-                phone_response.status_code,
-            )
+                phone_data = resolve_contact_via_relay(sender)
+            else:
+                phone_response = requests.get(
+                    phone_url,
+                    headers=headers,
+                    timeout=15,
+                )
 
-            phone_response.raise_for_status()
-            phone_data = phone_response.json()
+                logger.info(
+                    "OpenWA contact lookup completed with HTTP %s.",
+                    phone_response.status_code,
+                )
+
+                phone_response.raise_for_status()
+                phone_data = phone_response.json()
 
             if not isinstance(phone_data, dict):
                 raise ValueError("OpenWA returned an invalid contact response")
@@ -472,6 +481,14 @@ def openwa_webhook(request):
             if not phone_number:
                 raise ValueError("OpenWA returned an empty phone number")
 
+        except ContactNotAuthorized:
+            mark_whatsapp_message_processed(message_record)
+
+            return JsonResponse({
+                "received": True,
+                "authorized": False,
+            })
+
         except Exception:
             logger.exception("OpenWA contact lookup failed.")
 
@@ -483,6 +500,24 @@ def openwa_webhook(request):
                 "message": "Contact lookup temporarily unavailable",
             }, status=502)
 
+
+        if getattr(settings, "STAGING_MODE", False):
+            if (
+                not getattr(
+                    settings,
+                    "STAGING_WHATSAPP_DEMO_ENABLED",
+                    False,
+                )
+                or phone_number != getattr(
+                    settings, "DEMO_ALLOWED_PHONE", ""
+                )
+            ):
+                mark_whatsapp_message_processed(message_record)
+
+                return JsonResponse({
+                    "received": True,
+                    "authorized": False,
+                })
 
         # Only registered patients may interact with PrepBuddy.
         patient = Patient.objects.filter(
@@ -996,6 +1031,13 @@ def openwa_webhook(request):
 @csrf_exempt
 def openwa_relay_send_text(request):
     """Authenticated local relay from Render to the local OpenWA instance."""
+
+    if getattr(settings, "STAGING_MODE", False):
+        return JsonResponse(
+            {"error": "Not found"},
+            status=404,
+        )
+
 
     if request.method != "POST":
         return JsonResponse(

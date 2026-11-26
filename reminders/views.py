@@ -19,33 +19,45 @@ from .models import Reminder, ReminderFollowUp
 
 
 def sync_procedure_status(procedure):
-    """
-    Synchronize procedure status with preparation reminder progress.
-    Never overwrite terminal or attention-needed statuses.
-    """
-    if procedure.status in [
-        "cancelled",
-        "completed",
-        "attention_needed",
-    ]:
-        return
+    with transaction.atomic():
+        current = Procedure.objects.select_for_update().get(
+            pk=procedure.pk,
+        )
 
-    has_missed_critical = Reminder.objects.filter(
-        procedure=procedure,
-        status="missed",
-        prep_step__is_critical=True,
-    ).exists()
+        if current.status in (
+            "cancelled",
+            "completed",
+            "attention_needed",
+        ):
+            procedure.status = current.status
+            return
 
-    if has_missed_critical:
-        procedure.status = "attention_needed"
-    elif not procedure.reminders.exists():
-        return
-    elif procedure.reminders.exclude(status="confirmed").exists():
-        procedure.status = "prep_in_progress"
-    else:
-        procedure.status = "ready"
+        has_missed_critical = Reminder.objects.filter(
+            procedure=current,
+            status="missed",
+            prep_step__is_critical=True,
+        ).exists()
 
-    procedure.save(update_fields=["status", "updated_at"])
+        if has_missed_critical:
+            target = "attention_needed"
+        elif not current.reminders.exists():
+            procedure.status = current.status
+            return
+        elif current.reminders.exclude(
+            status="confirmed"
+        ).exists():
+            target = "prep_in_progress"
+        else:
+            target = "ready"
+
+        if current.status != target:
+            current.status = target
+            current.save(
+                update_fields=["status", "updated_at"]
+            )
+
+        procedure.status = current.status
+        procedure.updated_at = current.updated_at
 
 
 @api_view(["POST"])

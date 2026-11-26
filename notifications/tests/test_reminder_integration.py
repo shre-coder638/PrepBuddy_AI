@@ -100,7 +100,7 @@ def test_disabled_whatsapp_does_not_mark_reminder_sent(
     # The reminder must not be marked sent.
     assert reminder.status == "pending"
     assert reminder.sent_at is None
-    assert reminder.delivery_attempts == 1
+    assert reminder.delivery_attempts == 0
 
 
 @pytest.mark.django_db

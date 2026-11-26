@@ -57,3 +57,29 @@ def load_protocol_records(protocol_id: int) -> list[dict]:
         })
 
     return records
+
+
+
+def build_retrieval_corpus(records: list[dict]) -> list[dict]:
+    """Build E5 passages from already loaded protocol records.
+
+    This function performs no database queries and does not
+    modify its input records.
+    """
+    corpus = []
+
+    for record in records:
+        text = (
+            f"Protocol ID: {record['protocol_id']}\n"
+            f"Procedure: {record['protocol']}\n"
+            f"Protocol description: {record['protocol_description']}\n"
+            f"Step: {record['step']}\n"
+            f"Instruction: {record['instruction']}"
+        )
+
+        corpus.append({
+            **record,
+            "text": text,
+        })
+
+    return corpus

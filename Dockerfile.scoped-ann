@@ -1,0 +1,17 @@
+ARG ANN_BASE_IMAGE=prepbuddy-web:hybrid-ann-v1
+FROM ${ANN_BASE_IMAGE}
+
+WORKDIR /app
+
+COPY chatbot/ /app/chatbot/
+COPY config/ /app/config/
+COPY deploy/scoped_ann_gunicorn.py /app/deploy/scoped_ann_gunicorn.py
+
+ENV DJANGO_SETTINGS_MODULE=config.scoped_ann_settings
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV TOKENIZERS_PARALLELISM=false
+
+CMD ["gunicorn", "--config", "/app/deploy/scoped_ann_gunicorn.py", "config.scoped_ann_wsgi:application"]

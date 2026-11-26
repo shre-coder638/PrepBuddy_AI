@@ -5,6 +5,7 @@ import logging
 import secrets
 
 from django.conf import settings
+from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
 
 
@@ -118,7 +119,17 @@ def invoke_ann(**kwargs):
     return answer_configured_ann(**kwargs)
 
 
-def ann_inference(request):
+def reject_constant(value):
+    raise ValueError("Invalid JSON constant")
+
+
+def handle_inference(
+    request,
+    *,
+    max_body_bytes,
+    validator,
+    inference,
+):
     request.get_host()
 
     if not authenticated(request):
@@ -153,7 +164,7 @@ def ann_inference(request):
             status=400,
         )
 
-    if length > MAX_BODY_BYTES:
+    if length > max_body_bytes:
         return response(
             {"error": "Request too large"},
             status=413,
@@ -168,18 +179,25 @@ def ann_inference(request):
         payload = json.loads(
             body.decode("utf-8"),
             object_pairs_hook=unique_object,
+            parse_constant=reject_constant,
         )
 
-        arguments = validate_payload(payload)
+        arguments = validator(payload)
 
-    except (ValueError, UnicodeError):
+    except RequestDataTooBig:
+        return response(
+            {"error": "Request too large"},
+            status=413,
+        )
+
+    except (ValueError, UnicodeError, RecursionError):
         return response(
             {"error": "Invalid inference request"},
             status=400,
         )
 
     try:
-        result = invoke_ann(**arguments)
+        result = inference(**arguments)
 
         if not isinstance(result, dict):
             raise ValueError("Invalid ANN response")
@@ -196,3 +214,32 @@ def ann_inference(request):
             {"error": "Inference unavailable"},
             status=503,
         )
+
+
+
+def ann_inference(request):
+    """Legacy database-backed inference endpoint."""
+
+    return handle_inference(
+        request,
+        max_body_bytes=MAX_BODY_BYTES,
+        validator=validate_payload,
+        inference=invoke_ann,
+    )
+
+
+def ann_inference_scoped(request):
+    """Database-independent scoped inference endpoint."""
+
+    from .remote_protocol import (
+        MAX_SCOPED_BODY_BYTES,
+        validate_scoped_payload,
+        invoke_scoped_ann,
+    )
+
+    return handle_inference(
+        request,
+        max_body_bytes=MAX_SCOPED_BODY_BYTES,
+        validator=validate_scoped_payload,
+        inference=invoke_scoped_ann,
+    )

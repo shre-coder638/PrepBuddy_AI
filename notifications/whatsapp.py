@@ -214,6 +214,10 @@ def send_openwa_message(*, chat_id, text, dedupe_key, purpose):
     if not dedupe_key or not purpose:
         raise ValueError("dedupe_key and purpose are required.")
 
+    from .demo_safety import authorize_demo_chat
+
+    authorize_demo_chat(chat_id)
+
     outbound = _get_or_create_outbound(
         dedupe_key=dedupe_key,
         purpose=purpose,
@@ -271,12 +275,19 @@ def send_openwa_message(*, chat_id, text, dedupe_key, purpose):
     }
 
     try:
-        response = requests.post(
-            url,
-            headers=headers,
-            json=payload,
-            timeout=15,
-        )
+        if getattr(settings, "STAGING_MODE", False):
+            from .staging_transport import post_staging_relay
+
+            response = post_staging_relay(
+                url, headers, payload,
+            )
+        else:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=15,
+            )
     except requests.RequestException as exc:
         _mark_outbound_unknown(
             outbound.pk,

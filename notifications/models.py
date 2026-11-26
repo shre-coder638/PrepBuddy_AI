@@ -71,6 +71,11 @@ class MissedReminderAlert(models.Model):
         blank=True,
         default="",
     )
+    whatsapp_next_attempt_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
 
     reminder = models.OneToOneField(
         "reminders.Reminder",

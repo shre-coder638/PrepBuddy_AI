@@ -27,7 +27,12 @@ class RemoteANNError(Exception):
     """Remote inference could not be completed safely."""
 
 
-def validate_configuration(url, token):
+def validate_configuration(
+    url,
+    token,
+    *,
+    endpoint_path=ENDPOINT_PATH,
+):
     if not isinstance(url, str) or not url:
         raise RemoteANNError("Missing inference endpoint.")
 
@@ -40,7 +45,7 @@ def validate_configuration(url, token):
             and parsed.username is None
             and parsed.password is None
             and parsed.port in (None, 443)
-            and parsed.path == ENDPOINT_PATH
+            and parsed.path == endpoint_path
             and not parsed.query
             and not parsed.fragment
             and not any(char.isspace() for char in url)
@@ -94,6 +99,12 @@ def request_remote_ann(
 
     if len(body) > MAX_BODY_BYTES:
         raise RemoteANNError("Inference request too large.")
+
+    return _post_remote_ann(url, token, body)
+
+
+def _post_remote_ann(url, token, body):
+    """Shared restricted HTTPS inference transport."""
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -184,3 +195,55 @@ def request_remote_ann(
         raise RemoteANNError(
             "Remote inference failed."
         ) from None
+
+
+
+def request_scoped_ann(
+    url,
+    token,
+    question,
+    protocol_id,
+    protocol_records,
+    communication_style="neutral",
+    requires_human=False,
+):
+    """Send one assigned protocol to the database-free ANN."""
+
+    from .remote_protocol import (
+        SCOPED_ENDPOINT_PATH,
+        MAX_SCOPED_BODY_BYTES,
+        validate_scoped_payload,
+    )
+
+    validate_configuration(
+        url,
+        token,
+        endpoint_path=SCOPED_ENDPOINT_PATH,
+    )
+
+    try:
+        payload = validate_scoped_payload({
+            "question": question,
+            "protocol_id": protocol_id,
+            "protocol_records": protocol_records,
+            "communication_style": communication_style,
+            "requires_human": requires_human,
+        })
+
+        body = json.dumps(
+            payload,
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+
+    except (ValueError, UnicodeError, RecursionError):
+        raise RemoteANNError(
+            "Invalid scoped inference request."
+        ) from None
+
+    if len(body) > MAX_SCOPED_BODY_BYTES:
+        raise RemoteANNError(
+            "Scoped inference request too large."
+        )
+
+    return _post_remote_ann(url, token, body)

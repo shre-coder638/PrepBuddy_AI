@@ -10,10 +10,15 @@ from .protocol_records import load_protocol_records
 def build_protocol_overview(
     protocol_id,
     communication_style="neutral",
+    *,
+    corpus_records=None,
 ):
     """Return a complete stored protocol overview or None."""
 
-    records = load_protocol_records(protocol_id)
+    if corpus_records is None:
+        records = load_protocol_records(protocol_id)
+    else:
+        records = corpus_records
 
     if not records:
         return None

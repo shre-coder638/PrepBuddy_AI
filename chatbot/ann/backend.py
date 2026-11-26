@@ -30,6 +30,8 @@ def answer_configured_ann(
     communication_style="neutral",
     requires_human=False,
     history=None,
+    *,
+    corpus_records=None,
 ):
 
     if getattr(settings, "CHATBOT_BACKEND", "rag") != "ann":
@@ -44,6 +46,12 @@ def answer_configured_ann(
         "retrieved_step_ids": [],
     }
 
+    corpus_kwargs = (
+        {}
+        if corpus_records is None
+        else {"corpus_records": corpus_records}
+    )
+
     try:
 
         result = answer_with_ann(
@@ -53,6 +61,7 @@ def answer_configured_ann(
             requires_human=requires_human,
             history=history,
             trace=trace,
+            **corpus_kwargs,
         )
 
     except Exception as exc:
@@ -65,7 +74,12 @@ def answer_configured_ann(
         trace["outcome"] = "error"
         result = fallback()
 
-    if getattr(settings, "ANN_RECORD_EXPERIENCES", False):
+    # Supplied-corpus inference must remain database-independent.
+    # Experience recording belongs to the database-backed application.
+    if (
+        corpus_records is None
+        and getattr(settings, "ANN_RECORD_EXPERIENCES", False)
+    ):
 
         try:
 

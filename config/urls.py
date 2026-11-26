@@ -65,3 +65,15 @@ urlpatterns = [
     name="patient-delete-api",
     ),
 ]
+
+
+from django.urls import path as scheduler_path
+from config.scheduler_api import scheduler_tick
+
+urlpatterns += [
+    scheduler_path(
+        "internal/scheduler/v1/tick/",
+        scheduler_tick,
+        name="https-scheduler-tick",
+    ),
+]

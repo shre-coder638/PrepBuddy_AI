@@ -90,11 +90,16 @@ def retrieve_e5_steps(
     *,
     limit: int = DEFAULT_TOP_K,
     protocol_id: int | None = None,
+    corpus_records: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Retrieve ranked protocol steps using multilingual E5.
 
     When protocol_id is supplied, only records from that protocol
     are eligible for retrieval.
+
+    When corpus_records is supplied, retrieval uses only those
+    records and does not access the database. Supplied records must
+    belong to the explicitly assigned protocol.
 
     Similarity values are ranking scores, not calibrated confidence values.
     The returned records retain their original protocol metadata.
@@ -105,8 +110,6 @@ def retrieve_e5_steps(
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
         raise ValueError("limit must be a positive integer")
 
-    from chatbot.evaluation.load_protocols import load_active_protocols
-
     if protocol_id is not None and (
         not isinstance(protocol_id, int)
         or isinstance(protocol_id, bool)
@@ -114,7 +117,55 @@ def retrieve_e5_steps(
     ):
         raise ValueError("protocol_id must be a positive integer or None")
 
-    records = load_active_protocols()
+    if corpus_records is None:
+        # Preserve the existing database-backed retrieval path.
+        from chatbot.evaluation.load_protocols import load_active_protocols
+
+        records = load_active_protocols()
+
+    else:
+        # Supplied records are an explicit database-independent corpus.
+        # Never fall back to database retrieval in this branch.
+        if protocol_id is None:
+            raise ValueError(
+                "Supplied corpus requires an assigned protocol"
+            )
+
+        if not isinstance(corpus_records, list):
+            raise ValueError("Supplied corpus must be a list")
+
+        records = []
+        seen_step_ids = set()
+
+        for record in corpus_records:
+            if not isinstance(record, dict):
+                raise ValueError("Invalid supplied corpus record")
+
+            if (
+                type(record.get("protocol_id")) is not int
+                or record["protocol_id"] != protocol_id
+            ):
+                raise ValueError("Supplied corpus protocol mismatch")
+
+            step_id = record.get("step_id")
+
+            if type(step_id) is not int or step_id < 1:
+                raise ValueError("Invalid supplied step ID")
+
+            if step_id in seen_step_ids:
+                raise ValueError("Duplicate supplied step ID")
+
+            text = record.get("text")
+
+            if (
+                not isinstance(text, str)
+                or not text.strip()
+                or chr(0) in text
+            ):
+                raise ValueError("Invalid supplied passage text")
+
+            seen_step_ids.add(step_id)
+            records.append(dict(record))
 
     eligible_indices = [
         index

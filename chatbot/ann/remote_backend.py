@@ -2,6 +2,7 @@
 
 import json
 import logging
+from urllib.parse import urlsplit
 
 from django.conf import settings
 
@@ -15,7 +16,15 @@ from .preparation_intent import is_preparation_overview
 from .protocol_overview import build_protocol_overview
 from .protocol_records import load_protocol_records
 from .remote_service import validate_payload
-from .remote_client import request_remote_ann, RemoteANNError
+from .remote_client import (
+    request_remote_ann,
+    request_scoped_ann,
+    RemoteANNError,
+)
+from .remote_protocol import (
+    SCOPED_ENDPOINT_PATH,
+    validate_protocol_records,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -87,6 +96,8 @@ def validate_grounded_response(
     question,
     protocol_id,
     communication_style,
+    *,
+    expected_records=None,
 ):
     if not isinstance(result, dict):
         raise RemoteANNError("Invalid response object.")
@@ -124,6 +135,12 @@ def validate_grounded_response(
         raise RemoteANNError("Invalid evidence scope.")
 
     records = load_protocol_records(protocol_id)
+
+    if expected_records is not None:
+        if not same_payload(records, expected_records):
+            raise RemoteANNError(
+                "Protocol changed during inference."
+            )
 
     matches = [
         record for record in records
@@ -262,9 +279,44 @@ def answer_remote_ann(
                 communication_style=communication_style,
             ) or fallback()
 
+        url = getattr(settings, "REMOTE_ANN_URL", "")
+        token = getattr(settings, "ANN_SERVICE_TOKEN", "")
+
+        if urlsplit(url).path == SCOPED_ENDPOINT_PATH:
+
+            records = validate_protocol_records(
+                load_protocol_records(protocol_id),
+                protocol_id,
+            )
+
+            if not records:
+                return fallback()
+
+            name = records[0]["protocol"].casefold()
+
+            if "non-clinical" in name or "qa - " in name:
+                return fallback()
+
+            result = request_scoped_ann(
+                url=url,
+                token=token,
+                protocol_records=records,
+                **arguments,
+            )
+
+            return validate_grounded_response(
+                result,
+                question,
+                protocol_id,
+                communication_style,
+                expected_records=records,
+            )
+
+        # Explicit legacy configuration remains supported
+        # during migration. A failed v2 request never uses v1.
         result = request_remote_ann(
-            url=getattr(settings, "REMOTE_ANN_URL", ""),
-            token=getattr(settings, "ANN_SERVICE_TOKEN", ""),
+            url=url,
+            token=token,
             **arguments,
         )
 
