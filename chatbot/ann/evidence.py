@@ -13,7 +13,7 @@ from chatbot.rag import (
 )
 
 
-def is_valid_evidence(record, protocol_id):
+def is_valid_stored_evidence(record, protocol_id):
     """Check record integrity and assigned-protocol isolation."""
     if not isinstance(record, dict):
         return False
@@ -49,6 +49,14 @@ def is_valid_evidence(record, protocol_id):
     if record["instruction"].strip().lower() in {
         ".", "-", "n/a"
     }:
+        return False
+
+    return True
+
+
+def is_valid_evidence(record, protocol_id):
+    """Validate ranked evidence including retrieval metadata."""
+    if not is_valid_stored_evidence(record, protocol_id):
         return False
 
     score = record.get("similarity")

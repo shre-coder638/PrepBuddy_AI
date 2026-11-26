@@ -267,7 +267,7 @@ def cloud(settings, monkeypatch):
 
     monkeypatch.setattr(
         remote_backend,
-        "authorize_evidence",
+        "authorize_stored_evidence",
         Mock(return_value=True),
     )
 

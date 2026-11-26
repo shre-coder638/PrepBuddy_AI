@@ -9,7 +9,7 @@ from django.conf import settings
 from chatbot.rag import SAFE_FALLBACK, safety_response
 from chatbot.response_generator import apply_communication_style
 
-from .authorization import authorize_evidence
+from .authorization import authorize_stored_evidence
 from .clarification import assess_clarification
 from .multilingual_safety import multilingual_safety_response
 from .preparation_intent import is_preparation_overview
@@ -162,7 +162,7 @@ def validate_grounded_response(
     ):
         raise RemoteANNError("Protocol is not eligible.")
 
-    if not authorize_evidence(
+    if not authorize_stored_evidence(
         question,
         record,
         protocol_id=protocol_id,

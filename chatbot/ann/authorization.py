@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 
-from .evidence import is_valid_evidence
+from .evidence import (
+    is_valid_evidence,
+    is_valid_stored_evidence,
+)
 from .explicit_lookup import is_exact_instruction_lookup
 
 
@@ -29,12 +32,25 @@ REMOVAL_REQUEST = re.compile(
 
 
 def authorize_evidence(question, record, *, protocol_id):
-    """Authorize narrowly supported instruction lookups."""
+    """Authorize ranked retrieval evidence."""
+
+    if not is_valid_evidence(record, protocol_id):
+        return False
+
+    return authorize_stored_evidence(
+        question,
+        record,
+        protocol_id=protocol_id,
+    )
+
+
+def authorize_stored_evidence(question, record, *, protocol_id):
+    """Authorize stored evidence independently of retrieval metadata."""
 
     if not isinstance(question, str) or not question.strip():
         return False
 
-    if not is_valid_evidence(record, protocol_id):
+    if not is_valid_stored_evidence(record, protocol_id):
         return False
 
     normalized = " ".join(question.casefold().split())
