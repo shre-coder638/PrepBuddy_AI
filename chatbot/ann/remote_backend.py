@@ -297,16 +297,28 @@ def answer_remote_ann(
             if "non-clinical" in name or "qa - " in name:
                 return fallback()
 
+            from .preview_questions import normalize_preview_question
+
+            lookup_question = normalize_preview_question(
+                question,
+                records,
+            )
+
+            request_arguments = validate_payload({
+                **arguments,
+                "question": lookup_question,
+            })
+
             result = request_scoped_ann(
                 url=url,
                 token=token,
                 protocol_records=records,
-                **arguments,
+                **request_arguments,
             )
 
             return validate_grounded_response(
                 result,
-                question,
+                lookup_question,
                 protocol_id,
                 communication_style,
                 expected_records=records,

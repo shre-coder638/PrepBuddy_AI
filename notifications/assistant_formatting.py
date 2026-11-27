@@ -21,6 +21,49 @@ def message_units(text):
     return len(text.encode("utf-16-le")) // 2
 
 
+def humanize_grounded_reply(answer, sources, needs_clinical_team):
+    """Improve presentation without rewriting approved instructions."""
+
+    if needs_clinical_team is not False:
+        return answer
+
+    if not isinstance(sources, list) or len(sources) != 1:
+        return answer
+
+    source = sources[0]
+
+    if not isinstance(source, dict):
+        return answer
+
+    step = source.get("step")
+
+    if not isinstance(step, str) or not step.strip():
+        return answer
+
+    marker = f"Stored instruction - {step}: "
+
+    if answer.startswith(marker):
+        instruction = answer[len(marker):]
+
+        return (
+            "Here's what your preparation instructions say:"
+            f"\n\n{step}\n\n{instruction}"
+        )
+
+    # Preserve existing empathetic communication framing.
+    from chatbot.response_generator import COMMUNICATION_PREFIXES
+
+    for prefix in COMMUNICATION_PREFIXES.values():
+        framed_marker = f"{prefix}\n\n{marker}"
+
+        if answer.startswith(framed_marker):
+            instruction = answer[len(framed_marker):]
+
+            return f"{prefix}\n\n{step}\n\n{instruction}"
+
+    return answer
+
+
 def format_assistant_reply(result):
 
     answer = result.get("answer", "")
@@ -29,6 +72,12 @@ def format_assistant_reply(result):
         return EMPTY_ANSWER
 
     sources = result.get("sources", [])
+
+    answer = humanize_grounded_reply(
+        answer,
+        sources,
+        result.get("needs_clinical_team"),
+    )
 
     if isinstance(sources, list) and sources:
 
